@@ -1,17 +1,17 @@
 import WorkerManager from "./WorkManager.js";
 import md5 from "js-md5";
 
-var WebsocketServer = function (a, b) {
+var WebsocketServer = function (a, b, options) {
   function c() {}
-  function d(a, b, c, d) {
-    var e = "";
-    switch (a) {
+  function buildRTSPCommand(method, trackId, c, methodValue) {
+    var command = "";
+    switch (method) {
       case "OPTIONS":
       case "TEARDOWN":
       case "GET_PARAMETER":
       case "SET_PARAMETERS":
-        e =
-          a +
+        command =
+          method +
           " " +
           M +
           " RTSP/1.0\r\nCSeq: " +
@@ -21,8 +21,8 @@ var WebsocketServer = function (a, b) {
           "\r\n";
         break;
       case "DESCRIBE":
-        e =
-          a +
+        command =
+          method +
           " " +
           M +
           " RTSP/1.0\r\nCSeq: " +
@@ -32,27 +32,27 @@ var WebsocketServer = function (a, b) {
           "\r\n";
         break;
       case "SETUP":
-        console.log("trackID: " + b),
-          (e =
-            a +
+        console.log("trackID: " + trackId),
+          (command =
+            method +
             " " +
             M +
             "/trackID=" +
-            b +
+            trackId +
             " RTSP/1.0\r\nCSeq: " +
             B +
             (Q ? "\r\nExtraError: support\r\n" : "\r\n") +
             z +
             "Transport: DH/AVP/TCP;unicast;interleaved=" +
-            2 * b +
+            2 * trackId +
             "-" +
-            (2 * b + 1) +
+            (2 * trackId + 1) +
             "\r\n"),
-          (e += 0 != G ? "Session: " + G + "\r\n\r\n" : "\r\n");
+          (command += 0 != G ? "Session: " + G + "\r\n\r\n" : "\r\n");
         break;
       case "PLAY":
-        (e =
-          a +
+        (command =
+          method +
           " " +
           M +
           " RTSP/1.0\r\nCSeq: " +
@@ -61,13 +61,13 @@ var WebsocketServer = function (a, b) {
           "Session: " +
           G +
           "\r\n"),
-          void 0 != d && 0 != d
-            ? ((e += "Range: npt=" + d + "-\r\n"), (e += z + "\r\n"))
-            : (e += z + "\r\n");
+          void 0 != methodValue && 0 != methodValue
+            ? ((command += "Range: npt=" + methodValue + "-\r\n"), (command += z + "\r\n"))
+            : (command += z + "\r\n");
         break;
       case "PAUSE":
-        e =
-          a +
+        command =
+          method +
           " " +
           M +
           " RTSP/1.0\r\nCSeq: " +
@@ -78,7 +78,7 @@ var WebsocketServer = function (a, b) {
           "\r\n\r\n";
         break;
       case "SCALE":
-        (e =
+        (command =
           "PLAY " +
           M +
           " RTSP/1.0\r\nCSeq: " +
@@ -87,25 +87,25 @@ var WebsocketServer = function (a, b) {
           "Session: " +
           G +
           "\r\n"),
-          (e += "Scale: " + d + "\r\n"),
-          (e += z + "\r\n");
+          (command += "Scale: " + methodValue + "\r\n"),
+          (command += z + "\r\n");
     }
-    return e;
+    return command;
   }
-  function e(a) {
+  async function handleResponse(response) {
     var b = {},
-      e = a.search("CSeq: ") + 5;
+      e = response.search("CSeq: ") + 5;
     if (
-      ((B = parseInt(a.slice(e, e + 10)) + 1),
-      (b = m(a)),
+      ((B = parseInt(response.slice(e, e + 10)) + 1),
+      (b = m(response)),
       b.ResponseCode === x.UNAUTHORIZED && "" === z)
     )
-      f(b);
+      await authenticate(b);
     else if (b.ResponseCode === x.OK) {
-      if ("Options" === E) return (E = "Describe"), d("DESCRIBE", null, null);
+      if ("Options" === E) return (E = "Describe"), buildRTSPCommand("DESCRIBE", null, null);
       if ("Describe" === E) {
         (I = !1),
-          (D = n(a)),
+          (D = n(response)),
           "undefined" != typeof b.ContentBase &&
             (D.ContentBase = b.ContentBase);
         var g = 0;
@@ -176,7 +176,7 @@ var WebsocketServer = function (a, b) {
                 D.Sessions[g].ControlURL
               );
         }
-        return (F = 0), (E = "Setup"), d("SETUP", F);
+        return (F = 0), (E = "Setup"), buildRTSPCommand("SETUP", F);
       }
       if ("Setup" === E) {
         if (((G = b.SessionID), F < A.length))
@@ -185,15 +185,15 @@ var WebsocketServer = function (a, b) {
             (A[F].RtcpInterlevedID = b.RtcpInterlevedID),
             (F += 1),
             F !== A.length
-              ? d("SETUP", A[F].trackID.split("=")[1] - 0)
-              : (w.sendSdpInfo(A, L, I), (E = "Play"), d("PLAY", null))
+              ? buildRTSPCommand("SETUP", A[F].trackID.split("=")[1] - 0)
+              : (w.sendSdpInfo(A, L, I), (E = "Play"), buildRTSPCommand("PLAY", null))
           );
         console.log("Unknown setup SDP index");
       } else if ("Play" === E) {
         (G = b.SessionID),
           clearInterval(J),
           (J = setInterval(function () {
-            return h(d("GET_PARAMETER", null, null));
+            return sendCommand(buildRTSPCommand("GET_PARAMETER", null, null));
           }, y));
         E = "Playing";
       } else "Playing" === E || console.log("unknown rtsp state:" + E);
@@ -210,8 +210,8 @@ var WebsocketServer = function (a, b) {
             place: "RtspClient.js",
           }),
           F < A.length
-            ? d("SETUP", A[F].trackID)
-            : ((E = "Play"), d("PLAY", null))
+            ? buildRTSPCommand("SETUP", A[F].trackID)
+            : ((E = "Play"), buildRTSPCommand("PLAY", null))
         );
       C({
         errorCode: "503",
@@ -233,7 +233,7 @@ var WebsocketServer = function (a, b) {
         void console.log("RTP disconnection detect!!!")
       );
   }
-  function f(a) {
+  async function authenticate(a) {
     var b = O.username,
       c = O.passWord,
       e = {
@@ -248,36 +248,48 @@ var WebsocketServer = function (a, b) {
       Realm: a.Realm,
       Nonce: a.Nonce,
       Uri: M,
-    }),
-      (f = g(b, c, e.Uri, e.Realm, e.Nonce, e.Method)),
+    });
+
+    const digestResponse = await fetch(options?.authenticationUrl, { 
+      method: 'POST', 
+      body: JSON.stringify(e) 
+    });
+
+    const credentials = await digestResponse.json();
+
+      // (f = digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
+      // console.log(digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
       (z =
-        'Authorization: Digest username="' + b + '", realm="' + e.Realm + '",'),
+        'Authorization: Digest username="' + credentials.username + '", realm="' + e.Realm + '",'),
       (z +=
-        ' nonce="' + e.Nonce + '", uri="' + e.Uri + '", response="' + f + '"'),
+        ' nonce="' + e.Nonce + '", uri="' + e.Uri + '", response="' + credentials.digest + '"'),
       (z += "\r\n"),
-      h(d("OPTIONS", null, null));
+      sendCommand(buildRTSPCommand("OPTIONS", null, null));
   }
-  function g(a, b, c, d, e, f) {
+  function digestAuth(user, password, uri, realm, nonce, method) {
     var g = null,
       h = null,
       i = null;
     return (
-      (g = md5(a + ":" + d + ":" + b).toLowerCase()),
-      (h = md5(f + ":" + c).toLowerCase()),
-      (i = md5(g + ":" + e + ":" + h).toLowerCase())
+      (g = md5(user + ":" + realm + ":" + password).toLowerCase()),
+      (h = md5(method + ":" + uri).toLowerCase()),
+      (i = md5(g + ":" + nonce + ":" + h).toLowerCase())
     );
   }
-  function h(a) {
-    if (void 0 != a && null != a && "" != a)
-      if (null !== o && o.readyState === WebSocket.OPEN) {
+  function sendCommand(command) {
+    if (void 0 != command && null != command && "" != command)
+      if (null !== socket && socket.readyState === WebSocket.OPEN) {
         if (v === !1) {
-          var b = a.search("DESCRIBE");
+          var b = command.search("DESCRIBE");
           -1 !== b && ((u = !0), (v = !0));
         }
-        void 0 != a && o.send(i(a));
+        void 0 != command && socket.send(
+          toBytes(command)
+        );
       } else console.log("ws未连接");
   }
-  function i(a) {
+  function toBytes(text) {
+    return new TextEncoder().encode(text);
     for (
       var b = a.length, c = new Uint8Array(new ArrayBuffer(b)), d = 0;
       b > d;
@@ -286,9 +298,10 @@ var WebsocketServer = function (a, b) {
       c[d] = a.charCodeAt(d);
     return c;
   }
-  function j(a) {
+  async function handleMessage(message) {
     var b = new Uint8Array(),
-      c = new Uint8Array(a.data);
+      c = new Uint8Array(message.data);
+    var command = '';
     for (b = new Uint8Array(c.length), b.set(c, 0), s = b.length; s > 0; )
       if (36 !== b[0]) {
         var d = String.fromCharCode.apply(null, b),
@@ -306,7 +319,7 @@ var WebsocketServer = function (a, b) {
         if (-1 === f) return void (s = b.length);
         (q = b.subarray(g, f + p)), (b = b.subarray(f + p));
         var i = String.fromCharCode.apply(null, q);
-        h(e(i)), (s = b.length);
+        command = i, (s = b.length);
       } else {
         if (
           ((r = b.subarray(0, p)),
@@ -317,6 +330,8 @@ var WebsocketServer = function (a, b) {
         var j = b.subarray(p, t + p);
         l(r, j), (b = b.subarray(t + p)), (s = b.length);
       }
+
+      sendCommand(await handleResponse(command))
   }
   function k(a) {
     K = a;
@@ -519,7 +534,7 @@ var WebsocketServer = function (a, b) {
     return b;
   }
   var a = a,
-    o = null,
+    socket = null,
     p = 6,
     q = null,
     r = null,
@@ -564,11 +579,11 @@ var WebsocketServer = function (a, b) {
         Q = a;
       },
       connect: function () {
-        o ||
-          ((o = new WebSocket(a)),
-          (o.binaryType = "arraybuffer"),
-          o.addEventListener("message", j, !1),
-          (o.onopen = function () {
+        socket ||
+          ((socket = new WebSocket(a)),
+          (socket.binaryType = "arraybuffer"),
+          socket.addEventListener("message", handleMessage, !1),
+          (socket.onopen = function () {
             var a =
                 "OPTIONS " +
                 M +
@@ -576,10 +591,10 @@ var WebsocketServer = function (a, b) {
                 B +
                 (Q ? "\r\nExtraError: support" : "") +
                 "\r\n\r\n",
-              b = i(a);
-            o.send(b);
+              b = toBytes(a);
+            socket.send(b);
           }),
-          (o.onerror = function () {
+          (socket.onerror = function () {
             C({
               errorCode: 202,
               description: "Open WebSocket Error",
@@ -587,13 +602,13 @@ var WebsocketServer = function (a, b) {
           }));
       },
       disconnect: function () {
-        h(d("TEARDOWN", null, null)),
+        sendCommand(buildRTSPCommand("TEARDOWN", null, null)),
           clearInterval(J),
           (J = null),
-          null !== o &&
-            o.readyState === WebSocket.OPEN &&
-            (o.close(), (o = null), (G = null)),
-          null !== o && (o.onerror = null),
+          null !== socket &&
+            socket.readyState === WebSocket.OPEN &&
+            (socket.close(), (socket = null), (G = null)),
+          null !== socket && (socket.onerror = null),
           w.terminate();
       },
       controlPlayer: function (a) {
@@ -601,20 +616,20 @@ var WebsocketServer = function (a, b) {
         switch (((P = a.command), a.command)) {
           case "PLAY":
             if (((E = "Play"), null != a.range)) {
-              b = d("PLAY", null, null, a.range);
+              b = buildRTSPCommand("PLAY", null, null, a.range);
               break;
             }
-            (b = d("PLAY", null, null)), P && w.initStartTime();
+            (b = buildRTSPCommand("PLAY", null, null)), P && w.initStartTime();
             break;
           case "PAUSE":
             if ("PAUSE" === E) break;
-            (E = "PAUSE"), (b = d("PAUSE", null, null));
+            (E = "PAUSE"), (b = buildRTSPCommand("PAUSE", null, null));
             break;
           case "SCALE":
-            (b = d("SCALE", null, null, a.data)), w.playbackSpeed(a.data);
+            (b = buildRTSPCommand("SCALE", null, null, a.data)), w.playbackSpeed(a.data);
             break;
           case "TEARDOWN":
-            b = d("TEARDOWN", null, null);
+            b = buildRTSPCommand("TEARDOWN", null, null);
             break;
           case "audioPlay":
           case "volumn":
@@ -622,9 +637,9 @@ var WebsocketServer = function (a, b) {
             w.controlAudio(a.command, a.data);
             break;
           default:
-            console.log("未知指令: " + a.command);
+            console.log("Unknown command: " + a.command);
         }
-        "" != b && h(b);
+        "" != b && sendCommand(b);
       },
       setLiveMode: function (a) {
         w.setLiveMode(a);
