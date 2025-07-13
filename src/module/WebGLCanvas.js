@@ -1,4 +1,4 @@
-import { Script, Shader, Program, Texture, base64ArrayBuffer } from "./public1";
+import { Script, Shader, Program, Texture, base64ArrayBuffer, debug } from "./public1";
 
 function Vector() {}
 function Matrix() {}
@@ -1512,10 +1512,13 @@ var ImageTexture = (function () {
         },
         onInitWebGL: function () {
           try {
-            this.gl = this.canvas.getContext("experimental-webgl");
+            this.gl = this.canvas.getContext("webgl");
           } catch (a) {
+            console.log(this.canvas)
             console.log("inInitWebGL error = " + a);
           }
+
+
           if (
             (this.gl ||
               debug.error(

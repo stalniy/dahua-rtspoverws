@@ -1,3 +1,5 @@
+import { debug } from './debug.js'
+
 export function IvsDraw() {
     function a(a, b) {
         this.data = a,
@@ -70,10 +72,15 @@ export function IvsDraw() {
                     data: null,
                     channel: l
                 };
-                if (m.hasOwnProperty("VideoAnalyseRule") && (n.type = 0,
-                n.data = m.VideoAnalyseRule,
-                f && f(n)),
-                m.hasOwnProperty("FocusStatus") && (n.type = 3,
+                if (m.hasOwnProperty("VideoAnalyseRule")) {
+                    var o = m.VideoAnalyseRule || [];
+                    n.type = 0,
+                    n.data = o.filter(function(a) {
+                        return "ObjectDetect" !== a.Class
+                    }),
+                    f && f(n)
+                }
+                if (m.hasOwnProperty("FocusStatus") && (n.type = 3,
                 n.data = m.FocusStatus,
                 f && f(n)),
                 m.hasOwnProperty("Event") && (n.type = 2,
@@ -84,26 +91,26 @@ export function IvsDraw() {
                 f && f(n)),
                 c(j, h),
                 5 === d.type)
-                    for (var o = m.object, p = m.coordinate, q = 0; q < o.length; q++)
+                    for (var p = m.object, q = m.coordinate, r = 0; r < p.length; r++)
                         !function(a) {
-                            var b = o[a].classID + o[a].objectId;
-                            switch (o[a].operateType) {
+                            var b = p[a].classID + p[a].objectId;
+                            switch (p[a].operateType) {
                             case 1:
                                 e[b] = {},
                                 e[b].show = !0,
-                                o[a].hasOwnProperty("track") && (e[b].pos = o[a].track[0]),
-                                e[b].type = o[a].objectType,
-                                e[b].coordinate = p,
+                                p[a].hasOwnProperty("track") && (e[b].pos = p[a].track[0]),
+                                e[b].type = p[a].objectType,
+                                e[b].coordinate = q,
                                 e[b].timeout = setTimeout(function() {
                                     e[b].show = !1
                                 }, i);
                                 break;
                             case 2:
                                 e.hasOwnProperty(b) || (e[b] = {},
-                                e[b].coordinate = p),
-                                o[a].hasOwnProperty("track") && (e[b].pos = o[a].track[0],
+                                e[b].coordinate = q),
+                                p[a].hasOwnProperty("track") && (e[b].pos = p[a].track[0],
                                 e[b].show = !0),
-                                e[b].type = o[a].objectType,
+                                e[b].type = p[a].objectType,
                                 e[b].timeout && clearTimeout(e[b].timeout),
                                 e[b].timeout = setTimeout(function() {
                                     e[b].show = !1
@@ -116,9 +123,9 @@ export function IvsDraw() {
                             case 4:
                                 e.hasOwnProperty(b) && (e[b].show = !1)
                             }
-                        }(q);
+                        }(r);
                 else if (14 === d.type)
-                    for (var r = function(b) {
+                    for (var s = function(b) {
                         return setTimeout(function() {
                             var d = {};
                             n.type = 1,
@@ -132,36 +139,36 @@ export function IvsDraw() {
                             c(j, g),
                             delete e[b]
                         }, i)
-                    }, s = 0; s < m.length; s++)
-                        for (var p = m[s].coordinate, o = m[s].object && m[s].object.commonObject || [], q = 0; q < o.length; q++)
+                    }, t = 0; t < m.length; t++)
+                        for (var q = m[t].coordinate, p = m[t].object && m[t].object.commonObject || [], r = 0; r < p.length; r++)
                             !function(a) {
-                                var b = m[s].classID + o[a].objectId;
-                                for (var c in o[a])
-                                    if ("object" == typeof o[a][c])
-                                        switch (o[a].operateType) {
+                                var b = m[t].classID + p[a].objectId;
+                                for (var c in p[a])
+                                    if ("object" == typeof p[a][c])
+                                        switch (p[a].operateType) {
                                         case 1:
                                             e[b] || (e[b] = {}),
                                             e[b].show = !0,
-                                            e[b].pos = o[a][c][0].track[0],
-                                            e[b].track = o[a][c][0].track,
-                                            e[b].type = o[a].type,
-                                            e[b].coordinate = p,
+                                            e[b].pos = p[a][c][0].track[0],
+                                            e[b].track = p[a][c][0].track,
+                                            e[b].type = p[a].type,
+                                            e[b].coordinate = q,
                                             clearTimeout(e[b].timeout),
-                                            e[b].timeout = r(b);
+                                            e[b].timeout = s(b);
                                             break;
                                         case 2:
                                             e.hasOwnProperty(b) || (e[b] = {},
-                                            e[b].coordinate = p),
-                                            e[b].pos = o[a][c][0].track[0],
-                                            e[b].track = o[a][c][0].track,
+                                            e[b].coordinate = q),
+                                            e[b].pos = p[a][c][0].track[0],
+                                            e[b].track = p[a][c][0].track,
                                             e[b].show = !0,
-                                            e[b].type = o[a].type,
+                                            e[b].type = p[a].type,
                                             clearTimeout(e[b].timeout),
-                                            e[b].timeout = r(b)
+                                            e[b].timeout = s(b)
                                         }
-                            }(q);
+                            }(r);
                 else if (20 === d.type)
-                    for (var t = function(d) {
+                    for (var u = function(d) {
                         return setTimeout(function() {
                             var f = {};
                             n.type = 1,
@@ -176,36 +183,36 @@ export function IvsDraw() {
                             delete e[d],
                             g["delete"](d)
                         }, i)
-                    }, q = 0; q < m.length; q++) {
-                        var u = m[q]
-                          , v = {
+                    }, r = 0; r < m.length; r++) {
+                        var v = m[r]
+                          , w = {
                             show: !0,
                             type: 20,
-                            appInfo: u.appendInfo
+                            appInfo: v.appendInfo
                         }
-                          , w = String("0x14_") + u.objectId;
-                        switch (u.objectStatus) {
+                          , x = String("0x14_") + v.objectId;
+                        switch (v.objectStatus) {
                         case 0:
-                            e.hasOwnProperty(w) || (e[w] = v),
-                            e[w].data = u.params.object,
-                            e[w].timeout && clearTimeout(e[w].timeout),
-                            e[w].timeout = t(w);
+                            e.hasOwnProperty(x) || (e[x] = w),
+                            e[x].data = v.params.object,
+                            e[x].timeout && clearTimeout(e[x].timeout),
+                            e[x].timeout = u(x);
                             break;
                         case 1:
-                            e.hasOwnProperty(w) && (e[w].show = !1);
+                            e.hasOwnProperty(x) && (e[x].show = !1);
                             break;
                         case 2:
-                            e.hasOwnProperty(w) || (e[w] = v),
-                            e[w].data = u.params.object,
-                            e[w].timeout && clearTimeout(e[w].timeout),
-                            e[w].timeout = t(w);
+                            e.hasOwnProperty(x) || (e[x] = w),
+                            e[x].data = v.params.object,
+                            e[x].timeout && clearTimeout(e[x].timeout),
+                            e[x].timeout = u(x);
                             break;
                         case 3:
-                            e.hasOwnProperty(w) && delete e[w]
+                            e.hasOwnProperty(x) && delete e[x]
                         }
                     }
                 else if (25 === d.type)
-                    for (var t = function(d) {
+                    for (var u = function(d) {
                         return setTimeout(function() {
                             var f = {};
                             n.type = 1,
@@ -220,18 +227,18 @@ export function IvsDraw() {
                             delete e[d],
                             g["delete"](d)
                         }, i)
-                    }, q = 0; q < m.length; q++) {
-                        var u = m[q]
-                          , v = {
+                    }, r = 0; r < m.length; r++) {
+                        var v = m[r]
+                          , w = {
                             show: !0,
                             type: 25,
-                            objectType: u.objectType
+                            objectType: v.objectType
                         }
-                          , w = String("0x19_") + u.objectId;
-                        e.hasOwnProperty(w) || (e[w] = v),
-                        e[w].pos = u.pos,
-                        e[w].timeout && clearTimeout(e[w].timeout),
-                        e[w].timeout = t(w)
+                          , x = String("0x19_") + v.objectId;
+                        e.hasOwnProperty(x) || (e[x] = w),
+                        e[x].pos = v.pos,
+                        e[x].timeout && clearTimeout(e[x].timeout),
+                        e[x].timeout = u(x)
                     }
                 n.type = 1,
                 n.data = e,

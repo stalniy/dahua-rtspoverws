@@ -1,7 +1,6 @@
 import WorkerManager from "./WorkManager.js";
-import md5 from "js-md5";
 
-var WebsocketServer = function (a, b, options) {
+export function WebsocketServer(a, b, options) {
   function c() {}
   function buildRTSPCommand(method, trackId, c, methodValue) {
     var command = "";
@@ -124,7 +123,7 @@ var WebsocketServer = function (a, b, options) {
               (i.Port = parseInt(D.Sessions[g].Port)),
               "undefined" != typeof D.Sessions[g].Framerate &&
                 ((i.Framerate = parseInt(D.Sessions[g].Framerate)),
-                w.setFPS(i.Framerate),
+                workerManager.setFPS(i.Framerate),
                 N(i.Framerate)),
               A.push(i))
             : "PCMU" === D.Sessions[g].CodecMime ||
@@ -186,7 +185,7 @@ var WebsocketServer = function (a, b, options) {
             (F += 1),
             F !== A.length
               ? buildRTSPCommand("SETUP", A[F].trackID.split("=")[1] - 0)
-              : (w.sendSdpInfo(A, L, I), (E = "Play"), buildRTSPCommand("PLAY", null))
+              : (workerManager.sendSdpInfo(A, L, I), (E = "Play"), buildRTSPCommand("PLAY", null))
           );
         console.log("Unknown setup SDP index");
       } else if ("Play" === E) {
@@ -250,12 +249,7 @@ var WebsocketServer = function (a, b, options) {
       Uri: M,
     });
 
-    const digestResponse = await fetch(options?.authenticationUrl, { 
-      method: 'POST', 
-      body: JSON.stringify(e) 
-    });
-
-    const credentials = await digestResponse.json();
+    const credentials = await options?.authenticate(e);
 
       // (f = digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
       // console.log(digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
@@ -265,16 +259,6 @@ var WebsocketServer = function (a, b, options) {
         ' nonce="' + e.Nonce + '", uri="' + e.Uri + '", response="' + credentials.digest + '"'),
       (z += "\r\n"),
       sendCommand(buildRTSPCommand("OPTIONS", null, null));
-  }
-  function digestAuth(user, password, uri, realm, nonce, method) {
-    var g = null,
-      h = null,
-      i = null;
-    return (
-      (g = md5(user + ":" + realm + ":" + password).toLowerCase()),
-      (h = md5(method + ":" + uri).toLowerCase()),
-      (i = md5(g + ":" + nonce + ":" + h).toLowerCase())
-    );
   }
   function sendCommand(command) {
     if (void 0 != command && null != command && "" != command)
@@ -290,13 +274,6 @@ var WebsocketServer = function (a, b, options) {
   }
   function toBytes(text) {
     return new TextEncoder().encode(text);
-    for (
-      var b = a.length, c = new Uint8Array(new ArrayBuffer(b)), d = 0;
-      b > d;
-      d++
-    )
-      c[d] = a.charCodeAt(d);
-    return c;
   }
   async function handleMessage(message) {
     var b = new Uint8Array(),
@@ -337,7 +314,7 @@ var WebsocketServer = function (a, b, options) {
     K = a;
   }
   function l(a, b) {
-    w.parseRTPData(a, b), k(!0);
+    workerManager.parseRTPData(a, b), k(!0);
   }
   function m(a) {
     var b = {},
@@ -542,7 +519,7 @@ var WebsocketServer = function (a, b, options) {
     t = 0,
     u = !1,
     v = !1,
-    w = new WorkerManager(),
+    workerManager = new WorkerManager(),
     x = {
       OK: 200,
       UNAUTHORIZED: 401,
@@ -572,8 +549,8 @@ var WebsocketServer = function (a, b, options) {
     Q = !1;
   return (
     (c.prototype = {
-      init: function (a, b) {
-        w.init(a, b);
+      init: function (canvasElement, videoConfig, channelNumber, audioTalkEnabled) {
+        workerManager.init(canvasElement, videoConfig, channelNumber, audioTalkEnabled);
       },
       setStoreEncrypt: function (a) {
         Q = a;
@@ -609,7 +586,7 @@ var WebsocketServer = function (a, b, options) {
             socket.readyState === WebSocket.OPEN &&
             (socket.close(), (socket = null), (G = null)),
           null !== socket && (socket.onerror = null),
-          w.terminate();
+          workerManager.terminate();
       },
       controlPlayer: function (a) {
         var b = "";
@@ -619,14 +596,14 @@ var WebsocketServer = function (a, b, options) {
               b = buildRTSPCommand("PLAY", null, null, a.range);
               break;
             }
-            (b = buildRTSPCommand("PLAY", null, null)), P && w.initStartTime();
+            (b = buildRTSPCommand("PLAY", null, null)), P && workerManager.initStartTime();
             break;
           case "PAUSE":
             if ("PAUSE" === E) break;
             (E = "PAUSE"), (b = buildRTSPCommand("PAUSE", null, null));
             break;
           case "SCALE":
-            (b = buildRTSPCommand("SCALE", null, null, a.data)), w.playbackSpeed(a.data);
+            (b = buildRTSPCommand("SCALE", null, null, a.data)), workerManager.playbackSpeed(a.data);
             break;
           case "TEARDOWN":
             b = buildRTSPCommand("TEARDOWN", null, null);
@@ -634,7 +611,7 @@ var WebsocketServer = function (a, b, options) {
           case "audioPlay":
           case "volumn":
           case "audioSamplingRate":
-            w.controlAudio(a.command, a.data);
+            workerManager.controlAudio(a.command, a.data);
             break;
           default:
             console.log("Unknown command: " + a.command);
@@ -642,24 +619,29 @@ var WebsocketServer = function (a, b, options) {
         "" != b && sendCommand(b);
       },
       setLiveMode: function (a) {
-        w.setLiveMode(a);
+        workerManager.setLiveMode(a);
       },
       setRTSPURL: function (a) {
         M = a;
       },
-      setCallback: function (a, b) {
-        "GetFrameRate" === a ? (N = b) : w.setCallback(a, b),
-          "Error" == a && (C = b);
+      setCallback(eventName, callback) {
+        if ("GetFrameRate" === eventName) {
+          N = callback;
+        } else {
+          workerManager.setCallback(eventName, callback);
+        }
+
+        if ("Error" == eventName) {
+          C = callback;
+        }
       },
       setUserInfo: function (a, b) {
         (O.username = a), (O.passWord = b);
       },
       capture: function (a) {
-        w.capture(a);
+        workerManager.capture(a);
       },
     }),
     new c()
   );
 };
-
-export default WebsocketServer;

@@ -188,7 +188,7 @@ function formAuthorizationResponse(a, b, c, d, e, f) {
     h = hex_md5(f + ":" + c).toLowerCase(),
     i = hex_md5(g + ":" + e + ":" + h).toLowerCase()
 }
-var isDebug = true
+var isDebug = false
   , debug = function(a) {
     return a ? console : {
         log: function() {},

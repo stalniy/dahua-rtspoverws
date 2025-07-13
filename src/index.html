@@ -4,32 +4,72 @@
     <meta charset="utf-8" />
     <title>Dahua - RTSP over Websocket</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      .video-container {
+        position: relative;
+      }
+      .video-container-wrapper {
+        display: flex;
+        align-items: center;
+      }
+    </style>
   </head>
 
   <body>
-    <canvas id="canvas" width="500" style="width: 500px !important"></canvas>
+    <div class="video-container-wrapper">
+      <div class="video-container">
+        <canvas id="canvas" style="max-width: 100vw; max-height: 100vh;"></canvas>
+      </div>
+    </div>
 
     <video id="videoplayer"></video>
 
     <script type="module">
       import { PlayerControl } from "./PlayerControl.js";
+      import { CanvasDrawer } from "./plugin/canvas.js";
 
       const cameraIp = process.env.CAMERA_IP;
+      const CHANNEL = 1;
       let player = new PlayerControl({
         wsURL: `ws://${cameraIp}/rtspoverwebsocket`,
-        rtspURL: `rtsp://${cameraIp}/cam/realmonitor?channel=1&subtype=0`,
-        authenticationUrl: `http://localhost:12345`,
+        rtspURL: `rtsp://${cameraIp}/cam/realmonitor?channel=${CHANNEL}&subtype=0&proto=Private3`,
+        authenticate: async (e) => {
+          const digestResponse = await fetch(`http://localhost:12345`, {
+            method: 'POST',
+            body: JSON.stringify(e)
+          });
+          const credentials = await digestResponse.json();
+          return credentials;
+        },
       });
+      const videoCanvas = document.querySelector("#canvas");
+      const ivsCanvasDrawer = new CanvasDrawer({
+        channel: CHANNEL,
+        canvasParent: videoCanvas.parentNode,
+      });
+      ivsCanvasDrawer.coverAndObserve(videoCanvas);
+
       player.on("Error", (j) => {
         if (j) console.log(j.errorCode);
       });
+      player.on("IvsDraw", (data) => {
+        ivsCanvasDrawer.receiveDataFromStream(data);
+      })
+
+      player.on('WorkerReady', () => {
+        console.log('worker is ready')
+      })
+
+      // player.setLiveMode("canvas");
       player.init(
-        document.querySelector("#canvas"),
-        document.querySelector("#videoplayer")
+        videoCanvas,
+        {},
+        CHANNEL
       );
 
       let isAudioEnabled = false;
       let isConnected = false;
+      let isPlaying = true;
       window.$player = player;
       window.togglePlay = function toggleAudio() {
         isAudioEnabled = !isAudioEnabled;
@@ -51,9 +91,33 @@
           // player.audioStop();
         }
       }
+
+      // Function to enable IVS features
+      window.enableIVS = function() {
+        ivsCanvasDrawer.SetIVSEnable(true);
+        ivsCanvasDrawer.cover({
+          width: videoCanvas.offsetWidth,
+          height: videoCanvas.offsetHeight,
+          top: 0,
+          left: 0,
+          zindex: isPlaying ? 10002 : 1
+        });
+      }
+
+      // Function to disable IVS features
+      window.disableIVS = function() {
+        ivsCanvasDrawer.SetIVSEnable(false);
+      }
+
+      window.toggleFullScreen = function() {
+        videoCanvas.parentNode.parentNode.requestFullscreen();
+      }
     </script>
 
     <button onclick="togglePlay()">toggle play</button>
     <button onclick="$player.capture('test')">take screenshot</button>
+    <button onclick="toggleFullScreen()">toggle full screen</button>
+    <button onclick="enableIVS()">Enable IVS Drawing</button>
+    <button onclick="disableIVS()">Disable IVS Drawing</button>
   </body>
 </html>

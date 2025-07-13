@@ -1,12 +1,12 @@
-import WebsocketServer from "./WebSocketServer.js";
+import {WebsocketServer} from "./WebSocketServer.js";
 
 export class PlayerControl {
-  constructor(a) {
-    this.wsURL = a.wsURL;
-    this.rtspURL = a.rtspURL;
-    this.decodeMode = "video";
+  constructor(config) {
+    this.wsURL = config.wsURL;
+    this.rtspURL = config.rtspURL;
+    this.decodeMode = "canvas";
     this.ws = null;
-    this.supportStoreEncrypt = a.supportStoreEncrypt || !1;
+    this.supportStoreEncrypt = config.supportStoreEncrypt || !1;
     this.events = {
       ResolutionChanged() {},
       PlayStart() {},
@@ -18,21 +18,25 @@ export class PlayerControl {
       MSEResolutionChanged() {},
       audioChange() {},
       WorkerReady() {},
+      IvsDraw() {},
+      FileOver() {},
+      Waiting() {}
     };
-    this.username = a.username;
-    this.password = a.password;
-    this.authenticationUrl = a.authenticationUrl;
+    this.authenticate= config.authenticate;
+    this.el = null;
   }
 
-  init(a, b) {
+  init(canvasElement, videoConfig, channelNumber) {
+    this.el = canvasElement;
     this.ws = new WebsocketServer(this.wsURL, this.rtspURL, {
-      authenticationUrl: this.authenticationUrl
+      authenticate: this.authenticate
     });
-    this.ws.setStoreEncrypt(this.supportStoreEncrypt);
-    this.ws.init(a, b);
     this.ws.setLiveMode(this.decodeMode);
-    this.ws.setUserInfo(this.username, this.password);
-    for (var c in this.events) this.ws.setCallback(c, this.events[c]);
+    this.ws.init(canvasElement, videoConfig, channelNumber);
+
+    this.ws.setStoreEncrypt(this.supportStoreEncrypt);
+    // this.ws.setUserInfo(this.username, this.password);
+    for (var eventType in this.events) this.ws.setCallback(eventType, this.events[eventType]);
     this.events = null;
   }
   connect() {
@@ -50,12 +54,12 @@ export class PlayerControl {
   close() {
     this.ws.disconnect();
   }
-  playByTime(a) {
-    this.controlPlayer("PLAY", "video", a);
+  playByTime(timestamp) {
+    this.controlPlayer("PLAY", "video", timestamp);
   }
-  playFF(a) {
+  setPlaySpeed(speed) {
     this.controlPlayer("PAUSE");
-    this.controlPlayer("SCALE", a);
+    this.controlPlayer("SCALE", speed);
   }
   playRewind() {}
   audioPlay() {
@@ -64,36 +68,35 @@ export class PlayerControl {
   audioStop() {
     this.controlPlayer("audioPlay", "stop");
   }
-  setAudioSamplingRate(a) {
-    this.controlPlayer("audioSamplingRate", a);
+  setAudioSamplingRate(samplingRate) {
+    this.controlPlayer("audioSamplingRate", samplingRate);
   }
-  setAudioVolume(a) {
-    this.controlPlayer("volumn", a);
+  setAudioVolume(volume) {
+    this.controlPlayer("volumn", volume);
   }
-  controlPlayer(a, b, c) {
-    var d;
-    d =
-      "video" === b
+  controlPlayer(command, dataType, dataValue) {
+    var controlData =
+      "video" === dataType
         ? {
-            command: a,
-            range: c ? c : 0,
+            command: command,
+            range: dataValue ? dataValue : 0,
           }
         : {
-            command: a,
-            data: b,
+            command: command,
+            data: dataType,
           };
-    this.ws.controlPlayer(d);
+    this.ws.controlPlayer(controlData);
   }
-  setPlayMode(a) {
-    this.ws.setLiveMode(a);
+  setPlayMode(playMode) {
+    this.ws.setLiveMode(playMode);
   }
-  setPlayPath(a) {
-    this.ws.setRTSPURL(a);
+  setPlayPath(rtspUrl) {
+    this.ws.setRTSPURL(rtspUrl);
   }
-  capture(a) {
-    this.ws.capture(a);
+  capture(filename) {
+    this.ws.capture(filename);
   }
-  on(a, b) {
-    this.events[a] = b;
+  on(eventType, callback) {
+    this.events[eventType] = callback;
   }
 };

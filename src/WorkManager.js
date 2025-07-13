@@ -132,6 +132,7 @@ export default function WorkerManager() {
             B(c.data);
             break;
         case "ivsDraw":
+            P = "canvas"
             var o = c.data.ivsDraw
               , q = c.data.channel;
             if ("canvas" === P && (void 0 === J || null === J))
@@ -336,18 +337,18 @@ export default function WorkerManager() {
         height: 0
     };
     a.prototype = {
-        init: function(a, b, c, f) {
-            Ab = c,
-            S = a,
-            eb = b,
-            o.channel = c;
+        init(canvasElement, videoConfig, channelNumber, audioTalkEnabled) {
+            Ab = channelNumber,
+            S = canvasElement,
+            eb = videoConfig,
+            o.channel = channelNumber;
             window.navigator.userAgent;
             l = new Worker("module/videoWorker.js"),
             m = new Worker("module/audioWorker.js"),
             l.onmessage = d,
             m.onmessage = e;
-            var g = f === !0 ? 500 : 15;
-            p = new StreamDrawer(Ab,this,S,g),
+            var bufferSize = audioTalkEnabled === !0 ? 500 : 15;
+            p = new StreamDrawer(Ab,this,S,bufferSize),
             H = IvsDraw(),
             p.setResizeCallback(s),
             yb = document.getElementById("count-fps"),
@@ -622,68 +623,67 @@ export default function WorkerManager() {
                 l && (M.info = N,
                 l.postMessage(M))) : debug.log("mediaType:   " + f)
         },
-        setCallback: function(a, b) {
-            switch (a) {
+        setCallback(eventName, callback) {
+            switch (eventName) {
             case "timeStamp":
-                u = b;
+                u = callback;
                 break;
             case "ResolutionChanged":
-                s = b,
+                s = callback,
                 null !== p && p.setResizeCallback(s);
                 break;
             case "audioTalk":
-                v = b;
+                v = callback;
                 break;
             case "stepRequest":
-                w = b;
+                w = callback;
                 break;
             case "metaEvent":
-                x = b;
+                x = callback;
                 break;
             case "videoMode":
-                y = b;
+                y = callback;
                 break;
             case "loadingBar":
-                z = b;
+                z = callback;
                 break;
             case "Error":
-                A = b;
+                A = callback;
                 break;
             case "PlayStart":
-                t = b,
+                t = callback,
                 null !== p && p.setBeginDrawCallback(t);
                 break;
             case "DecodeStart":
-                B = b;
+                B = callback;
                 break;
             case "UpdateCanvas":
-                C = b,
+                C = callback,
                 null !== p && p.setupdateCanvasCallback(C);
                 break;
             case "FrameTypeChange":
-                D = b;
+                D = callback;
                 break;
             case "MSEResolutionChanged":
-                E = b;
+                E = callback;
                 break;
             case "audioChange":
-                F = b;
+                F = callback;
                 break;
             case "WorkerReady":
-                zb = b;
+                zb = callback;
                 break;
             case "IvsDraw":
-                G = b;
+                G = callback;
                 break;
             case "FileOver":
-                this.fileOverCallback = b;
+                this.fileOverCallback = callback;
                 break;
             case "Waiting":
-                this.waitingCallback = b;
+                this.waitingCallback = callback;
                 break;
             default:
-                debug.log(a),
-                debug.log("workerManager::setCallback() : type is unknown")
+                debug.log(`workerManager::setCallback() : type "${eventName}" is unknown`)
             }
         },
         capture(filename) {
@@ -701,63 +701,63 @@ export default function WorkerManager() {
         setGovLength: function(a) {
             M = a
         },
-        setLiveMode(a) {
-            null !== y && y(a),
-            P = null === a ? "canvas" : a,
+        setLiveMode(decodeMode) {
+            null !== y && y(decodeMode);
+            P = null === decodeMode ? "canvas" : decodeMode,
             "video" === P ? null !== p && p.renewCanvas() : "canvas" === P && h(!1)
         },
-        setPlayMode: function(a) {
-            W = a
+        setPlayMode: function(playMode) {
+            W = playMode
         },
-        controlAudio: function(a, b) {
+        controlAudio: function(audioCommand, audioValue) {
             console.log(q)
-            switch (debug.log(a + " " + b),
-            a) {
+            switch (debug.log(audioCommand + " " + audioValue),
+            audioCommand) {
             case "audioPlay":
-                "start" === b ? null !== q && q.play() : (sb = 0,
+                "start" === audioValue ? null !== q && q.play() : (sb = 0,
                 null !== q && q.stop());
                 break;
             case "volumn":
-                sb = b,
-                null !== q && q.controlVolumn(b);
+                sb = audioValue,
+                null !== q && q.controlVolumn(audioValue);
                 break;
             case "audioSamplingRate":
-                null !== q && q.setSamplingRate(b)
+                null !== q && q.setSamplingRate(audioValue)
             }
         },
-        controlAudioTalk: function(a, b) {
+        controlAudioTalk: function(talkCommand, talkValue) {
             if (null !== r)
-                switch (a) {
+                switch (talkCommand) {
                 case "onOff":
-                    "on" === b || r.stopAudioOut();
+                    "on" === talkValue || r.stopAudioOut();
                     break;
                 case "volumn":
-                    r.controlVolumnOut(b)
+                    r.controlVolumnOut(talkValue)
                 }
         },
         reassignCanvas: function() {
             null !== p && p.reassignCanvas()
         },
-        digitalZoom: function(a) {
-            null !== p && p.digitalZoom(a)
+        digitalZoom: function(zoomLevel) {
+            null !== p && p.digitalZoom(zoomLevel)
         },
-        playbackSpeed: function(a) {
-            jb = a,
+        playbackSpeed: function(speed) {
+            jb = speed,
             p.setFrameInterval(jb)
         },
-        timeStamp: function(a) {
-            C && C(a)
+        timeStamp: function(timestamp) {
+            C && C(timestamp)
         },
-        initVideo: function(a) {
-            h(a)
+        initVideo: function(videoMode) {
+            h(videoMode)
         },
-        setFpsFrame: function(a) {
-            wb = a,
+        setFpsFrame: function(frameCount) {
+            wb = frameCount,
             vb = 0,
             ub = 0
         },
-        setCheckDelay: function(a) {
-            Q = a
+        setCheckDelay: function(delayEnabled) {
+            Q = delayEnabled
         },
         initStartTime: function() {
             var a = {
@@ -795,8 +795,8 @@ export default function WorkerManager() {
             X && X.play(),
             l && p.play()
         },
-        setLessRate: function(a) {
-            Gb = a
+        setLessRate: function(lessRateEnabled) {
+            Gb = lessRateEnabled
         }
     };
     return new a

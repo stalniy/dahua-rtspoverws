@@ -15,12 +15,66 @@ function receiveMessage(a) {
             break;
         case "initStartTime":
             videoRtpSessionsArray[videoCHID].initStartTime()
+            break
+        case "end":
+            sendMessage("end")
+            break
     }
 }
 
 function setVideoRtpSession(a) {
-    videoRtpSessionsArray = [], isStepPlay = !1;
-    for (var b = 0; b < a.sdpInfo.length; b++) rtpSession = null, decodeMode = a.decodeMode, "H264" === a.sdpInfo[b].codecName ? (null === h264Session && (h264Session = H264Session()), rtpSession = h264Session, rtpSession.init(a.decodeMode), rtpSession.setFramerate(a.sdpInfo[b].Framerate), rtpSession.setGovLength(a.govLength), rtpSession.setCheckDelay(a.checkDelay)) : "H265" === a.sdpInfo[b].codecName ? (null === h265Session && (h265Session = H265Session()), rtpSession = h265Session, rtpSession.init(), rtpSession.setFramerate(a.sdpInfo[b].Framerate), rtpSession.setGovLength(a.govLength), rtpSession.setCheckDelay(a.checkDelay)) : "JPEG" === a.sdpInfo[b].codecName ? (null === mjpegSession && (mjpegSession = MjpegSession()), rtpSession = mjpegSession, rtpSession.init(), rtpSession.setFramerate(a.sdpInfo[b].Framerate)) : "stream-assist-frame" === a.sdpInfo[b].codecName && (console.log(a.sdpInfo[b]), null === ivsSession && (ivsSession = IvsSession()), rtpSession = ivsSession, rtpSession.init()), "undefined" != typeof a.sdpInfo[b].Framerate && (framerate = a.sdpInfo[b].Framerate), null !== rtpSession && (rtpSession.setBufferfullCallback(BufferFullCallback), rtpSession.setReturnCallback(RtpReturnCallback), videoCHID = a.sdpInfo[b].RtpInterlevedID, videoRtpSessionsArray[videoCHID] = rtpSession)
+    videoRtpSessionsArray = [];
+    isStepPlay = !1;
+
+    for (var b = 0; b < a.sdpInfo.length; b++) {
+        rtpSession = null;
+        decodeMode = a.decodeMode;
+
+        if ("H264" === a.sdpInfo[b].codecName) {
+            if (null === h264Session) {
+                h264Session = H264Session();
+            }
+            rtpSession = h264Session;
+            rtpSession.init(a.decodeMode);
+            rtpSession.setFramerate(a.sdpInfo[b].Framerate);
+            rtpSession.setGovLength(a.govLength);
+            rtpSession.setCheckDelay(a.checkDelay);
+        } else if ("H265" === a.sdpInfo[b].codecName) {
+            if (null === h265Session) {
+                h265Session = H265Session();
+            }
+            rtpSession = h265Session;
+            rtpSession.init();
+            rtpSession.setFramerate(a.sdpInfo[b].Framerate);
+            rtpSession.setGovLength(a.govLength);
+            rtpSession.setCheckDelay(a.checkDelay);
+        } else if ("JPEG" === a.sdpInfo[b].codecName) {
+            if (null === mjpegSession) {
+                mjpegSession = MjpegSession();
+            }
+            rtpSession = mjpegSession;
+            rtpSession.init();
+            rtpSession.setFramerate(a.sdpInfo[b].Framerate);
+        } else if ("stream-assist-frame" === a.sdpInfo[b].codecName) {
+            console.log(a.sdpInfo[b]);
+            if (null === ivsSession) {
+                ivsSession = IvsSession();
+            }
+            rtpSession = ivsSession;
+            rtpSession.init();
+        }
+
+        if ("undefined" != typeof a.sdpInfo[b].Framerate) {
+            framerate = a.sdpInfo[b].Framerate;
+        }
+
+        if (null !== rtpSession) {
+            rtpSession.setBufferfullCallback(BufferFullCallback);
+            rtpSession.setReturnCallback(RtpReturnCallback);
+            videoCHID = a.sdpInfo[b].RtpInterlevedID;
+            videoRtpSessionsArray[videoCHID] = rtpSession;
+        }
+    }
 }
 
 function buffering(a) {
@@ -54,7 +108,7 @@ function RtpReturnCallback(a) {
             };
             "undefined" != typeof b.frameData.width && (d.width = b.frameData.width, d.height = b.frameData.height), sendMessage("videoInfo", d), sendMessage("videoTimeStamp", b.timeStamp), b.frameData.length > 0 && (sendMessage("mediaSample", b.mediaSample), sendMessage("videoRender", b.frameData))
         } else sendMessage("drop", a.decodedData);
-    null != a.resolution && sendMessage("MSEResolutionChanged", a.resolution), null != a.decodeStart && sendMessage("DecodeStart", a.decodeStart), null != a.ivsDraw && sendMessage("ivsDraw", a.ivsDraw)
+    null != a.resolution && sendMessage("MSEResolutionChanged", a.resolution), null != a.decodeStart && sendMessage("DecodeStart", a.decodeStart), null != a.ivsDraw && sendMessage("ivsDraw", a)
 }
 
 function sendMessage(a, b) {

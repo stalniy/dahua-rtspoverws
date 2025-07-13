@@ -186,4 +186,14 @@ var Script = (function () {
     );
   };
 
-export { Script, Program, Shader, Texture, base64ArrayBuffer };
+var isDebug = false
+, debug = function(a) {
+  return a ? console : {
+      log: function() {},
+      error: function() {},
+      count: function() {},
+      info: function() {}
+  }
+}(isDebug)
+
+export { Script, Program, Shader, Texture, base64ArrayBuffer, debug };
