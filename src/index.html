@@ -5,119 +5,320 @@
     <title>Dahua - RTSP over Websocket</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
-      .video-container {
-        position: relative;
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f5f5f5;
       }
-      .video-container-wrapper {
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        color: #666;
+        margin: 0;
+      }
+
+      .player-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 30px;
+      }
+
+      .player-wrapper {
+        position: relative;
+        width: 100%;
+        height: 600px;
+      }
+
+      .controls-panel {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .controls-panel h3 {
+        margin-top: 0;
+        color: #333;
+        margin-bottom: 15px;
+      }
+
+      .control-group {
         display: flex;
-        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+      }
+
+      .control-button {
+        background: #03a9f4;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.2s ease;
+      }
+
+      .control-button:hover {
+        background: #0288d1;
+      }
+
+      .control-button.secondary {
+        background: #757575;
+      }
+
+      .control-button.secondary:hover {
+        background: #616161;
+      }
+
+      .config-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .config-section h3 {
+        margin-top: 0;
+        color: #333;
+        margin-bottom: 15px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #333;
+        font-weight: 500;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: #03a9f4;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        font-size: 14px;
+      }
+
+      .status.success {
+        background: #e8f5e8;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+
+      .status.error {
+        background: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+      }
+
+      .keyboard-shortcuts {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin-top: 15px;
+      }
+
+      .keyboard-shortcuts h4 {
+        margin-top: 0;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .shortcut {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .key {
+        background: #e0e0e0;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: monospace;
+        font-size: 12px;
       }
     </style>
   </head>
 
   <body>
-    <div class="video-container-wrapper">
-      <div class="video-container">
-        <canvas id="canvas" style="max-width: 100vw; max-height: 100vh;"></canvas>
+    <div class="container">
+      <div class="header">
+        <h1>Dahua RTSP Player</h1>
+        <p>Web component for streaming Dahua camera feeds over WebSocket</p>
+      </div>
+
+      <form name="config" class="config-section">
+        <h3>Camera Configuration</h3>
+        <div class="form-group">
+          <label for="camera-ip">Camera IP Address:</label>
+          <input type="text" id="camera-ip" name="cameraIp" value="" placeholder="Enter camera IP address">
+        </div>
+        <div class="form-group">
+          <label for="camera-channel">Channel:</label>
+          <input type="number" id="camera-channel" name="cameraChannel" value="1" min="1" max="16">
+        </div>
+        <button class="control-button" onclick="updatePlayer()">Update Player</button>
+      </form>
+
+      <div class="player-container">
+        <div class="player-wrapper">
+          <dahua-player
+            id="dahua-player">
+          </dahua-player>
+        </div>
+      </div>
+
+      <div class="controls-panel">
+        <h3>Player Controls</h3>
+        <div class="control-group">
+          <button class="control-button" onclick="play()">Play</button>
+          <button class="control-button" onclick="pause()">Pause</button>
+          <button class="control-button" onclick="stop()">Stop</button>
+          <button class="control-button secondary" onclick="capture()">Take Screenshot</button>
+        </div>
+
+        <div class="control-group">
+          <button class="control-button" onclick="toggleAudio()">Toggle Audio</button>
+          <button class="control-button" onclick="toggleIVS()">Toggle IVS</button>
+          <button class="control-button" onclick="toggleFullscreen()">Fullscreen</button>
+        </div>
+
+        <div class="keyboard-shortcuts">
+          <h4>Keyboard Shortcuts</h4>
+          <div class="shortcut">
+            <span>Play/Pause</span>
+            <span class="key">Space</span>
+          </div>
+          <div class="shortcut">
+            <span>Toggle Audio</span>
+            <span class="key">M</span>
+          </div>
+          <div class="shortcut">
+            <span>Toggle IVS</span>
+            <span class="key">I</span>
+          </div>
+          <div class="shortcut">
+            <span>Fullscreen</span>
+            <span class="key">F</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <video id="videoplayer"></video>
-
     <script type="module">
-      import { PlayerControl } from "./PlayerControl.js";
-      import { CanvasDrawer } from "./plugin/canvas.js";
+      import { DahuaPlayer } from "./dahua-player.js";
 
-      const cameraIp = process.env.CAMERA_IP;
-      const CHANNEL = 1;
-      let player = new PlayerControl({
-        wsURL: `ws://${cameraIp}/rtspoverwebsocket`,
-        rtspURL: `rtsp://${cameraIp}/cam/realmonitor?channel=${CHANNEL}&subtype=0&proto=Private3`,
-        authenticate: async (e) => {
-          const digestResponse = await fetch(`http://localhost:12345`, {
-            method: 'POST',
-            body: JSON.stringify(e)
-          });
-          const credentials = await digestResponse.json();
-          return credentials;
-        },
-      });
-      const videoCanvas = document.querySelector("#canvas");
-      const ivsCanvasDrawer = new CanvasDrawer({
-        channel: CHANNEL,
-        canvasParent: videoCanvas.parentNode,
-      });
-      ivsCanvasDrawer.coverAndObserve(videoCanvas);
+      // Make the player globally accessible
+      const dahuaPlayer = document.getElementById('dahua-player');
 
-      player.on("Error", (j) => {
-        if (j) console.log(j.errorCode);
-      });
-      player.on("IvsDraw", (data) => {
-        ivsCanvasDrawer.receiveDataFromStream(data);
-      })
+      document.forms.config.cameraIp.value = process.env.CAMERA_IP;
+      document.forms.config.cameraChannel.value = '1';
+      updatePlayer();
 
-      player.on('WorkerReady', () => {
-        console.log('worker is ready')
-      })
+      // Control functions
+      window.play = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.togglePlay();
+        }
+      };
 
-      // player.setLiveMode("canvas");
-      player.init(
-        videoCanvas,
-        {},
-        CHANNEL
-      );
+      window.pause = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.pause();
+        }
+      };
 
-      let isAudioEnabled = false;
-      let isConnected = false;
-      let isPlaying = true;
-      window.$player = player;
-      window.togglePlay = function toggleAudio() {
-        isAudioEnabled = !isAudioEnabled;
+      window.stop = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.stop();
+        }
+      };
 
-        // player.setAudioVolume(isAudioEnabled ? 1 : 0);
-        console.log('audio enabled', isAudioEnabled)
-        if (isAudioEnabled) {
-          if (!isConnected) {
-            isConnected = true;
-            player.connect();
-          } else {
-            player.play();
-          }
-          player.setAudioVolume(1)
-          // player.audioPlay();
-        } else {
-          player.pause();
-          player.setAudioVolume(0)
-          // player.audioStop();
+      window.capture = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.capture('screenshot');
+        }
+      };
+
+      window.toggleAudio = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.toggleAudio();
+        }
+      };
+
+      window.toggleIVS = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.toggleIVS();
+        }
+      };
+
+      window.toggleFullscreen = function() {
+        if (dahuaPlayer) {
+          dahuaPlayer.toggleFullscreen();
+        }
+      };
+
+      function updatePlayer() {
+        const cameraIp = document.forms.config.cameraIp.value;
+        const channel = document.forms.config.cameraChannel.value;
+
+        if (dahuaPlayer) {
+          dahuaPlayer.setAttribute('camera-ip', cameraIp);
+          dahuaPlayer.setAttribute('channel', channel);
         }
       }
+      window.updatePlayer = updatePlayer;
 
-      // Function to enable IVS features
-      window.enableIVS = function() {
-        ivsCanvasDrawer.SetIVSEnable(true);
-        ivsCanvasDrawer.cover({
-          width: videoCanvas.offsetWidth,
-          height: videoCanvas.offsetHeight,
-          top: 0,
-          left: 0,
-          zindex: isPlaying ? 10002 : 1
-        });
-      }
+      // Add event listeners for configuration changes
+      document.getElementById('camera-ip').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          updatePlayer();
+        }
+      });
 
-      // Function to disable IVS features
-      window.disableIVS = function() {
-        ivsCanvasDrawer.SetIVSEnable(false);
-      }
-
-      window.toggleFullScreen = function() {
-        videoCanvas.parentNode.parentNode.requestFullscreen();
-      }
+      document.getElementById('camera-channel').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          updatePlayer();
+        }
+      });
     </script>
-
-    <button onclick="togglePlay()">toggle play</button>
-    <button onclick="$player.capture('test')">take screenshot</button>
-    <button onclick="toggleFullScreen()">toggle full screen</button>
-    <button onclick="enableIVS()">Enable IVS Drawing</button>
-    <button onclick="disableIVS()">Disable IVS Drawing</button>
   </body>
 </html>

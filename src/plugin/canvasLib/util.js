@@ -1,4 +1,9 @@
-import { jQuery as a } from '../jQuery.js';
+import { jQuery } from '../jQuery.js';
+
+export const extend = jQuery.extend;
+export const deepExtend = (target, ...args) => {
+    return extend(true, target, ...args);
+};
 
 var d = {};
 export const utils = {
@@ -151,12 +156,12 @@ export const utils = {
         if (c === b.length - 1) {
             d = g.pop(),
             f = g.pop();
-            var i = a.extend(!0, [], g);
+            var i = deepExtend([], g);
             i.pop();
             var j = utils.lineCross(f, i);
             if (j === !0)
                 return !0;
-            var k = a.extend(!0, [], g);
+            var k = deepExtend([], g);
             k.shift();
             var j = utils.lineCross(d, k);
             return j
@@ -164,24 +169,24 @@ export const utils = {
         if (0 === c) {
             f = g.pop(),
             d = g.shift();
-            var i = a.extend(!0, [], g);
+            var i = deepExtend([], g);
             i.pop();
             var j = utils.lineCross(f, i);
             if (j === !0)
                 return !0;
-            var k = a.extend(!0, [], g);
+            var k = deepExtend([], g);
             k.shift();
             var j = utils.lineCross(d, k);
             return j
         }
         f = g.splice(c, 1),
         d = g.splice(c - 1, 1);
-        var i = a.extend(!0, [], g);
+        var i = deepExtend([], g);
         i.splice(c - 1, 1);
         var j = utils.lineCross(f[0], i);
         if (j === !0)
             return !0;
-        var k = a.extend(!0, [], g);
+        var k = deepExtend([], g);
         0 > c - 2 ? k.pop() : k.splice(c - 2, 1);
         var j = utils.lineCross(d[0], k);
         return j;
@@ -297,10 +302,10 @@ export const utils = {
     },
     getPositionByLine: function(b, c, d) {
         var e = [];
-        e[0] = a.extend(!0, [], c[0]),
-        e[1] = a.extend(!0, [], c[1]),
-        c[1][1] < c[0][1] && d && (e[0] = a.extend(!0, [], c[1]),
-        e[1] = a.extend(!0, [], c[0]));
+        e[0] = deepExtend([], c[0]),
+        e[1] = deepExtend([], c[1]),
+        c[1][1] < c[0][1] && d && (e[0] = deepExtend([], c[1]),
+        e[1] = deepExtend([], c[0]));
         var f = e[1][1] - e[0][1]
           , g = e[0][0] - e[1][0]
           , h = e[1][0] * e[0][1] - e[0][0] * e[1][1]

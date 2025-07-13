@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function ParkingLotShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function ParkingLotShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             b.data.push(f),
             f
         }
@@ -36,7 +35,7 @@ export function ParkingLotShape() {
                 f = 0;
                 var h = {};
                 h.data = [],
-                h.option = a.extend(!0, {}, c),
+                h.option = deepExtend({}, c),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
@@ -135,7 +134,7 @@ export function ParkingLotShape() {
             c.option.selected && (b.ctx.beginPath(),
             b.ctx.strokeStyle = c.option.selectedColor,
             e = c.option.selectedColor,
-            a.each(c.data, function(a, c) {
+            c.data.forEach(c => {
                 utils.drawSelectRect(b.ctx, c[0] * b.coordinate.widthDraw, c[1] * b.coordinate.heightDraw)
             }),
             b.ctx.closePath())
@@ -219,8 +218,8 @@ export function ParkingLotShape() {
     ,
     this.resizeShape = function(c, e, f) {
         var g = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
-          , h = a.extend(!0, [], f)
-          , i = a.extend(!0, [], f)
+          , h = deepExtend([], f)
+          , i = deepExtend([], f)
           , j = (i.data.slice(0, 4),
         i.data.slice(0, 4))
           , k = i.data.slice(4);

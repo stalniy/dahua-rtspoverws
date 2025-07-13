@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function TextShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function TextShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             b.data.push(f),
             f
         }

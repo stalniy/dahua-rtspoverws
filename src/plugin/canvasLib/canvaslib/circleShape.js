@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function CircleShape() {
     var b = this;
@@ -18,9 +17,9 @@ export function CircleShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             f.option.fillStyle = f.option.fillStyle || "#0000FF",
             f.option.fillStyleSelected = f.option.fillStyleSelected || "#00FF00",
             b.data.push(f),
@@ -41,7 +40,7 @@ export function CircleShape() {
                 var h = []
                   , i = {};
                 i.data = h,
-                i.option = a.extend(!0, {}, c),
+                i.option = deepExtend({}, c),
                 i.shapeId = utils.shapeId++,
                 i.option.zindex = utils.zindex++,
                 i.option.type = b.type,
@@ -49,7 +48,7 @@ export function CircleShape() {
                 i.option.fillStyle = i.option.fillStyle || "#0000FF",
                 i.option.fillStyleSelected = i.option.fillStyleSelected || "#00FF00",
                 b.data.push(i),
-                b.data[b.data.length - 1].data = a.extend(!0, [], e),
+                b.data[b.data.length - 1].data = deepExtend([], e),
                 utils.drawState = 1,
                 b.drawFunc()
             }

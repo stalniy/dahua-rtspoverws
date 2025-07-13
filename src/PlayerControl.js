@@ -52,7 +52,7 @@ export class PlayerControl {
     this.controlPlayer("TEARDOWN");
   }
   close() {
-    this.ws.disconnect();
+    this.ws?.disconnect();
   }
   playByTime(timestamp) {
     this.controlPlayer("PLAY", "video", timestamp);
@@ -90,7 +90,7 @@ export class PlayerControl {
   setPlayMode(playMode) {
     this.ws.setLiveMode(playMode);
   }
-  setPlayPath(rtspUrl) {
+  setRTSPURL(rtspUrl) {
     this.ws.setRTSPURL(rtspUrl);
   }
   capture(filename) {

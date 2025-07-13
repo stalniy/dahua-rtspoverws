@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function LaneShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function LaneShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             b.data.push(f),
             f
         }
@@ -36,7 +35,7 @@ export function LaneShape() {
                 f = 0;
                 var h = {};
                 h.data = [],
-                h.option = a.extend(!0, {}, c),
+                h.option = deepExtend({}, c),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
@@ -93,7 +92,7 @@ export function LaneShape() {
             var e, f = null;
             if (c.option.selected ? (e = c.option.selectedColor,
             f = c.option.selectedColor,
-            a.each(c.data, function(a, c) {
+            c.data.forEach(c => {
                 utils.drawSelectRect(b.ctx, c[0] * b.coordinate.widthDraw, c[1] * b.coordinate.heightDraw)
             })) : (e = c.option.strokeColor,
             f = c.option.strokeColor),
@@ -141,10 +140,10 @@ export function LaneShape() {
         if (1 == e.option.hide || !e.option.resizeEnable == !0 && 1 == !e.option.moveEnable)
             return !1;
         var g = [];
-        g[0] = a.extend(!0, [], e.data[0]),
-        g[1] = a.extend(!0, [], e.data[1]),
-        g[2] = a.extend(!0, [], e.data[3]),
-        g[3] = a.extend(!0, [], e.data[2]);
+        g[0] = deepExtend([], e.data[0]),
+        g[1] = deepExtend([], e.data[1]),
+        g[2] = deepExtend([], e.data[3]),
+        g[3] = deepExtend([], e.data[2]);
         var h = utils.pointInPoly(f, g)
           , i = utils.onLine(f, g);
         return h || i ? (e.option.selected = !0,
@@ -175,7 +174,7 @@ export function LaneShape() {
     ,
     this.resizeShape = function(c, e, f) {
         var g = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
-          , h = a.extend(!0, {}, f);
+          , h = deepExtend({}, f);
         h.data[c][0] = g[0],
         h.data[c][1] = g[1];
         var i = utils.segmentsIntr(h.data[0], h.data[1], h.data[2], h.data[3])

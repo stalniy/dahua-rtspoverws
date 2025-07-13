@@ -1,5 +1,5 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
+import { jQuery as  a } from '../../jQuery.js';
 
 function d(a, b, c) {
     if (a += "",
@@ -38,9 +38,9 @@ export function MotionDetectShape() {
         j = [],
         k = 0;
         var l = {};
-        return l.data = a.extend(!0, [], c),
+        return l.data = deepExtend([], c),
         l.shapeId = utils.shapeId++,
-        l.option = a.extend(!0, {}, f),
+        l.option = deepExtend({}, f),
         b.data[0] = l,
         i = [],
         a.each(c, function(b, c) {
@@ -101,7 +101,7 @@ export function MotionDetectShape() {
                 a.each(h, function(a, b) {
                     i[l][b.row][b.column] = j
                 }),
-                f = a.extend(!0, {}, g),
+                f = deepExtend({}, g),
                 b.drawFunc()
             }
         }),
@@ -159,7 +159,7 @@ export function MotionDetectShape() {
     }
     ,
     this.drawData = function() {
-        var d = a.extend(!0, [], j);
+        var d = deepExtend([], j);
         d.sort(utils.compareArray);
         for (var g = 0; g < d.length; g++) {
             var h = j.indexOf(d[g])
@@ -208,7 +208,7 @@ export function MotionDetectShape() {
     this.deleteMotionDetect = function(c) {
         if (b.data[0] && b.data[0].data && b.data[0].data.length > 0) {
             if (null == c || void 0 == c)
-                a.each(b.data[0].data, function(a, b) {
+                b.data[0].data.forEach((b, a) => {
                     for (var c = 0; c < b.Region.length; c++) {
                         b.Region[c] = 0;
                         for (var d = 0; g > d; d++)

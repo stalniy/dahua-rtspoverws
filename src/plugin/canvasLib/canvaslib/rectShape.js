@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function RectShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function RectShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             b.data.push(f),
             f
         }
@@ -34,13 +33,13 @@ export function RectShape() {
                 var g = []
                   , h = {};
                 h.data = g,
-                h.option = a.extend(!0, {}, c),
+                h.option = deepExtend({}, c),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
                 h.option.selected = !0,
                 b.data.push(h),
-                b.data[b.data.length - 1].data[0] = a.extend(!0, [], e),
+                b.data[b.data.length - 1].data[0] = deepExtend([], e),
                 utils.drawState = 1
             }
         }),
@@ -58,9 +57,9 @@ export function RectShape() {
                             var i = Math.ceil(0 - (h.data[0][0] - g[0]) * h.option.lockWH.height / h.option.lockWH.width + h.data[0][1]);
                             if (i > 8191 || 0 > i)
                                 return;
-                            h.data[1] = a.extend(!0, [], [g[0], i])
+                            h.data[1] = deepExtend([], [g[0], i])
                         } else
-                            h.data[1] = a.extend(!0, [], g)
+                            h.data[1] = deepExtend([], g)
                     }
                     utils.drawState = 1,
                     b.drawFunc()
@@ -94,7 +93,7 @@ export function RectShape() {
                                 j.height = i[1] - b.data[h].data[0][1],
                                 g = b.checkRectSize(b.data[h], j, "minRect")
                             }
-                            b.data[h].option.defaultSize || (b.data[h].data[1] = a.extend(!0, [], f || g || i))
+                            b.data[h].option.defaultSize || (b.data[h].data[1] = deepExtend([], f || g || i))
                         }
                         b.drawFunc(),
                         utils.drawState = 2,
@@ -132,7 +131,7 @@ export function RectShape() {
             c.option.title && utils.strokeText(b.ctx, c.option.title, (c.data[0][0] / 2 + c.data[1][0] / 2) * b.coordinate.widthDraw, (c.data[0][1] / 2 + c.data[1][1] / 2 + 10) * b.coordinate.heightDraw, "center", e),
             (0 === c.option.direction || 1 === c.option.direction || 2 === c.option.direction) && 2 == c.data.length) {
                 var f = utils.getArrayLines([c.data[0][0] * this.coordinate.widthDraw, c.data[0][1] * this.coordinate.heightDraw], [c.data[0][0] * this.coordinate.widthDraw, c.data[1][1] * this.coordinate.heightDraw], c.option.direction);
-                f && f.length >= 3 && (a.each(f, function(a, c) {
+                f && f.length >= 3 && (f.forEach(c => {
                     utils.drawAppendLine(b.ctx, c)
                 }),
                 utils.strokeText(b.ctx, "A", f[0][0][0] + 10, f[0][0][1] + 10, null, e),

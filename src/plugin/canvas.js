@@ -1429,8 +1429,10 @@ sdevInit: function() {
     )
 },
 init(canvasParent = document.body) {
+    console.log('init canvas');
     this.ivsCanvasDom = document.createElement("canvas"),
     this.ivsCanvasDom.style.cssText = "position:absolute; top:-10000px",
+    console.log(this.ivsCanvasDom, "<---");
     canvasParent.appendChild(this.ivsCanvasDom),
     this.ivsCanvasDraw = new CanvasDrawerPlugin(),
     this.ivsCanvasDraw.init(this.ivsCanvasDom),
@@ -1479,7 +1481,7 @@ coverAndObserve(videoCanvas) {
             height: videoCanvas.offsetHeight,
             top: 0,
             left: 0,
-            zindex: 10002
+            zindex: 100
         });
         size.width = videoCanvas.offsetWidth;
         size.height = videoCanvas.offsetHeight;

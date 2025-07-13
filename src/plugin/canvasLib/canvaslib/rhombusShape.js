@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function RhombusShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function RhombusShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             f.option.maxRect || (f.option.maxRect = [[0, 0], [8191, 8191]]),
             b.data.push(f),
             f
@@ -36,7 +35,7 @@ export function RhombusShape() {
             0 != f)))) {
                 var h = {};
                 h.data = [],
-                h.option = a.extend(!0, {}, c),
+                h.option = deepExtend({}, c),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
@@ -103,7 +102,7 @@ export function RhombusShape() {
             b.ctx.stroke(),
             (0 === c.option.direction || 1 === c.option.direction || 2 === c.option.direction) && c.data.length >= 2) {
                 var f = utils.getArrayLines([c.data[0][0] * this.coordinate.widthDraw, c.data[0][1] * this.coordinate.heightDraw], [c.data[1][0] * this.coordinate.widthDraw, c.data[1][1] * this.coordinate.heightDraw], c.option.direction);
-                f && f.length >= 3 && (a.each(f, function(a, c) {
+                f && f.length >= 3 && (f.forEach(c => {
                     utils.drawAppendLine(b.ctx, c)
                 }),
                 utils.strokeText(b.ctx, "A", f[0][0][0] + 10, f[0][0][1] + 10, null, e),

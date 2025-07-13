@@ -1,6 +1,6 @@
 import WorkerManager from "./WorkManager.js";
 
-export function WebsocketServer(a, b, options) {
+export function WebsocketServer(wsUrl, rtspUrl, options) {
   function c() {}
   function buildRTSPCommand(method, trackId, c, methodValue) {
     var command = "";
@@ -233,9 +233,7 @@ export function WebsocketServer(a, b, options) {
       );
   }
   async function authenticate(a) {
-    var b = O.username,
-      c = O.passWord,
-      e = {
+    var e = {
         Method: null,
         Realm: null,
         Nonce: null,
@@ -249,7 +247,9 @@ export function WebsocketServer(a, b, options) {
       Uri: M,
     });
 
+    console.log(e, "<---");
     const credentials = await options?.authenticate(e);
+    console.log(credentials, "<---");
 
       // (f = digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
       // console.log(digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
@@ -270,7 +270,7 @@ export function WebsocketServer(a, b, options) {
         void 0 != command && socket.send(
           toBytes(command)
         );
-      } else console.log("ws未连接");
+      } else console.log("websocket not connected");
   }
   function toBytes(text) {
     return new TextEncoder().encode(text);
@@ -510,7 +510,7 @@ export function WebsocketServer(a, b, options) {
     }
     return b;
   }
-  var a = a,
+  var
     socket = null,
     p = 6,
     q = null,
@@ -542,7 +542,7 @@ export function WebsocketServer(a, b, options) {
     J = null,
     K = !1,
     L = {},
-    M = b,
+    M = rtspUrl,
     N = null,
     O = {},
     P = "",
@@ -557,7 +557,7 @@ export function WebsocketServer(a, b, options) {
       },
       connect: function () {
         socket ||
-          ((socket = new WebSocket(a)),
+          ((socket = new WebSocket(wsUrl)),
           (socket.binaryType = "arraybuffer"),
           socket.addEventListener("message", handleMessage, !1),
           (socket.onopen = function () {

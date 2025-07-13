@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function EllipseShape() {
     var b = this;
@@ -17,9 +16,9 @@ export function EllipseShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = a.extend(!0, [], c),
+            return f.data = deepExtend([], c),
             f.shapeId = utils.shapeId++,
-            f.option = a.extend(!0, {}, e),
+            f.option = deepExtend({}, e),
             b.data.push(f),
             f
         }
@@ -34,13 +33,13 @@ export function EllipseShape() {
                 var g = []
                   , h = {};
                 h.data = g,
-                h.option = a.extend(!0, {}, c),
+                h.option = deepExtend({}, c),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
                 h.option.selected = !0,
                 b.data.push(h),
-                b.data[b.data.length - 1].data[0] = a.extend(!0, [], e),
+                b.data[b.data.length - 1].data[0] = deepExtend([], e),
                 utils.drawState = 1
             }
         }),
@@ -48,7 +47,7 @@ export function EllipseShape() {
             if (!utils.moveFlag && !utils.resizeFlag) {
                 var f = b.data.length - 1
                   , g = [Math.round((c.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((c.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)];
-                e && (b.data[f].data[2] = a.extend(!0, [], g),
+                e && (b.data[f].data[2] = deepExtend([], g),
                 b.data[f].data[1] = [b.data[f].data[2][0], b.data[f].data[0][1]],
                 b.data[f].data[3] = [b.data[f].data[0][0], b.data[f].data[2][1]],
                 utils.drawState = 1,
@@ -113,10 +112,10 @@ export function EllipseShape() {
             if (1 == e.option.hide || !e.option.resizeEnable == !0 && 1 == !e.option.moveEnable)
                 return !1;
             var g = [];
-            g[0] = a.extend(!0, [], e.data[0]),
-            g[2] = a.extend(!0, [], e.data[1]),
-            g[4] = a.extend(!0, [], e.data[2]),
-            g[6] = a.extend(!0, [], e.data[3]);
+            g[0] = deepExtend([], e.data[0]),
+            g[2] = deepExtend([], e.data[1]),
+            g[4] = deepExtend([], e.data[2]),
+            g[6] = deepExtend([], e.data[3]);
             var h = b._getCrossPoint(e.data);
             g[1] = h[0],
             g[3] = h[1],

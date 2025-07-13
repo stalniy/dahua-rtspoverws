@@ -1,5 +1,5 @@
 import { jQuery as a } from '../jQuery.js';
-import { utils } from './util.js';
+import { utils, deepExtend } from './util.js';
 import { FactoryGridShapeAction } from './FactoryGridShapeAction.class.js';
 import * as canvaslib from './canvaslib';
 

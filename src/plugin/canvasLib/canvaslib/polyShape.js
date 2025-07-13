@@ -1,5 +1,4 @@
-import { jQuery as a } from '../../jQuery.js';
-import { utils } from '../util.js';
+import { utils, deepExtend } from '../util.js';
 
 export function PolyShape() {
   var b = this;
@@ -17,9 +16,9 @@ export function PolyShape() {
   this.add = function(c, e) {
       if (b.data.length < b.regionNum) {
           var f = {};
-          return f.data = a.extend(!0, [], c),
+          return f.data = deepExtend([], c),
           f.shapeId = utils.shapeId++,
-          f.option = a.extend(!0, {}, e),
+          f.option = deepExtend({}, e),
           b.data.push(f),
           f
       }
@@ -36,7 +35,7 @@ export function PolyShape() {
               f = 0;
               var h = {};
               h.data = [],
-              h.option = a.extend(!0, {}, c),
+              h.option = deepExtend({}, c),
               h.shapeId = utils.shapeId++,
               h.option.zindex = utils.zindex++,
               h.option.type = b.type,
@@ -95,7 +94,7 @@ export function PolyShape() {
           var e = null;
           c.option.selected ? (b.ctx.strokeStyle = c.option.selectedColor,
           e = c.option.selectedColor,
-          a.each(c.data, function(a, c) {
+          c.data.forEach(c => {
               utils.drawSelectRect(b.ctx, c[0] * b.coordinate.widthDraw, c[1] * b.coordinate.heightDraw)
           }),
           b.ctx.closePath()) : (b.ctx.strokeStyle = c.option.strokeColor,
@@ -112,7 +111,7 @@ export function PolyShape() {
           b.ctx.fill()),
           (0 === c.option.direction || 1 === c.option.direction || 2 === c.option.direction) && c.data.length >= 2) {
               var g = utils.getArrayLines([c.data[0][0] * this.coordinate.widthDraw, c.data[0][1] * this.coordinate.heightDraw], [c.data[1][0] * this.coordinate.widthDraw, c.data[1][1] * this.coordinate.heightDraw], c.option.direction);
-              g && g.length >= 3 && (a.each(g, function(a, c) {
+              g && g.length >= 3 && (g.forEach(c => {
                   utils.drawAppendLine(b.ctx, c)
               }),
               utils.strokeText(b.ctx, "A", g[0][0][0] + 10, g[0][0][1] + 10, null, e),
@@ -123,7 +122,7 @@ export function PolyShape() {
                   h[i][0] = c.data[i][0] * this.coordinate.widthDraw,
                   h[i][1] = c.data[i][1] * this.coordinate.heightDraw;
               var g = utils.getArrayLines([c.data[0][0] * this.coordinate.widthDraw, c.data[0][1] * this.coordinate.heightDraw], [c.data[1][0] * this.coordinate.widthDraw, c.data[1][1] * this.coordinate.heightDraw], c.option.direction, h);
-              g && g.length >= 3 && a.each(g, function(a, c) {
+              g && g.length >= 3 && g.forEach(c => {
                   utils.drawAppendLine(b.ctx, c)
               })
           }
@@ -202,7 +201,7 @@ export function PolyShape() {
   this.resizeShape = function(c, e, f) {
       var g = jQuery.extend(!0, [], f.data)
         , h = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
-        , i = a.extend(!0, [], f);
+        , i = deepExtend([], f);
       i.data[c][0] = h[0],
       i.data[c][1] = h[1];
       var j = utils.lineCrossPoly(i.data, c);
