@@ -1,4 +1,4 @@
-import { Script, Shader, Program, Texture, base64ArrayBuffer, debug } from "./public1";
+import { Script, Shader, Program, Texture, debug } from "./public1";
 
 function Vector() {}
 function Matrix() {}

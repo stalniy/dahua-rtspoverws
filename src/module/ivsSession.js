@@ -1,4 +1,6 @@
-var IvsSession = function() {
+import { debug } from '../debug';
+
+export function IvsSession() {
   function a() {
       this.firstTime = 0,
       this.lastMSW = 0

@@ -1,4 +1,4 @@
-import { BrowserDetect } from "./browserDetect.js";
+import { BrowserDetect } from "./module/public1.js";
 
 function VideoMediaSource(a) {
   function unknownB() {}

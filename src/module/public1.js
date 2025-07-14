@@ -1,4 +1,14 @@
-function BrowserDetect() {
+export { debug } from '../debug.js';
+
+// @type {canvas|video}
+export let decodeMode = "canvas";
+export const videoEncoding = {
+  setMode(mode) {
+    decodeMode = mode;
+  }
+}
+
+export function BrowserDetect() {
   var a = navigator.userAgent.toLowerCase(),
     b = navigator.appName,
     c = null;
@@ -186,14 +196,63 @@ var Script = (function () {
     );
   };
 
-var isDebug = false
-, debug = function(a) {
-  return a ? console : {
-      log: function() {},
-      error: function() {},
-      count: function() {},
-      info: function() {}
-  }
-}(isDebug)
 
-export { Script, Program, Shader, Texture, base64ArrayBuffer, debug };
+
+export function VideoBufferList() {
+    function a() {
+        b = 360, c = 240, d = null, this._length = 0, this.head = null, this.tail = null, this.curIdx = 0
+    }
+    var b = 0,
+        c = 0,
+        d = null;
+    return a.prototype = {
+        push: function (a, b, e, f, g, h) {
+            var i = new VideoBufferNode(a, b, e, f, g, h);
+            return this._length > 0 ? (this.tail.next = i, i.previous = this.tail, this.tail = i) : (this.head = i, this.tail = i), this._length += 1, null !== d && this._length >= c ? d() : 0, i
+        },
+        pop: function () {
+            var a = null;
+            return this._length > 1 && (a = this.head, this.head = this.head.next, null !== this.head ? this.head.previous = null : this.tail = null, this._length -= 1), a
+        },
+        setMaxLength: function (a) {
+            b = a, b > 360 ? b = 360 : 30 > b && (b = 30)
+        },
+        setBUFFERING: function (a) {
+            c = a, c > 240 ? c = 240 : 6 > c && (c = 6)
+        },
+        setBufferFullCallback: function (a) {
+            d = a
+        },
+        searchTimestamp: function (a) {
+            var b = this.head,
+                c = this._length,
+                d = 1,
+                e = {
+                    failure: "Failure: non-existent node in this list."
+                };
+            if (0 === c || 0 >= a || null === b) throw new Error(e.failure);
+            for (; null !== b && (b.timeStamp.timestamp !== a.timestamp || b.timeStamp.timestamp_usec !== a.timestamp_usec);) b = b.next, d++;
+            return d > c ? b = null : this.curIdx = d, b
+        },
+        findIFrame: function (a) {
+            var b = this.head,
+                c = this._length,
+                d = 1,
+                e = {
+                    failure: "Failure: non-existent node in this list."
+                };
+            if (0 === c) throw new Error(e.failure);
+            for (; d < this.curIdx;) b = b.next, d++;
+            if (a === !0)
+                for (;
+                    "I" !== b.frameType;) b = b.next, d++;
+            else
+                for (;
+                    "I" !== b.frameType;) b = b.previous, d--;
+            return d > c ? b = null : this.curIdx = d, b
+        }
+    }, new a
+}
+
+
+export { Script, Program, Shader, Texture, base64ArrayBuffer };

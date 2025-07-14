@@ -1,5 +1,18 @@
 "use strict";
 
+import { debug } from '../debug.js';
+import { G711Session } from './g711Session.js';
+import { G726Session } from './g726Session.js';
+import { AACSession } from './aacSession.js';
+
+debug.log("audio worker loaded")
+addEventListener("message", receiveMessage, !1);
+
+var audioRtpSessionsArray = []
+  , sdpInfo = null
+  , rtpSession = null
+  , isBackupCommand = !1;
+
 function receiveMessage(a) {
     var b = a.data;
     switch (b.type) {
@@ -66,9 +79,3 @@ function sendMessage(a, b) {
     } else
         postMessage(c)
 }
-importScripts("public.js", "g711Session.js", "g726Session.js", "aacSession.js", "Decode/audioDecoderG711.js", "Decode/audioDecoderG726x.js"),
-addEventListener("message", receiveMessage, !1);
-var audioRtpSessionsArray = []
-  , sdpInfo = null
-  , rtpSession = null
-  , isBackupCommand = !1;

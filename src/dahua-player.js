@@ -19,7 +19,7 @@ class DahuaPlayer extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['camera-ip', 'channel', 'rtsp-url', 'ws-url'];
+    return ['camera-ip', 'channel', 'subtype', 'rtsp-url', 'ws-url'];
   }
 
   connectedCallback() {
@@ -248,7 +248,7 @@ class DahuaPlayer extends HTMLElement {
 
             <div class="volume-control">
               <button class="control-button" id="volume-btn" title="Volume">
-                <span class="icon icon-volume"></span>
+                <span class="icon icon-volume-mute"></span>
               </button>
               <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
             </div>
@@ -317,7 +317,8 @@ class DahuaPlayer extends HTMLElement {
   initializePlayer() {
     const cameraIp = this.getAttribute('camera-ip') || '192.168.1.100';
     const channel = parseInt(this.getAttribute('channel'), 10) || 1;
-    const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=0&proto=Private3`;
+    const subtype = parseInt(this.getAttribute('subtype'), 10) || 0;
+    const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=${subtype}&proto=Private3`;
     const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
 
     this.videoCanvas = this.shadowRoot.querySelector('#video-canvas');
@@ -325,7 +326,6 @@ class DahuaPlayer extends HTMLElement {
     const errorEl = this.shadowRoot.querySelector('#error');
 
     try {
-      console.log(wsUrl, rtspUrl, "<---");
       this.player = new PlayerControl({
         wsURL: wsUrl,
         rtspURL: rtspUrl,

@@ -1,10 +1,12 @@
 import { VideoMediaSource } from "./videoMediaSource.js";
-import { BrowserDetect } from "./browserDetect.js";
-import mp4Remux from "./mp4remux.js";
+import { BrowserDetect } from "./module/public1.js";
+import { mp4Remux } from "./module/mp4remux.js";
 import { StreamDrawer } from "./streamdrawer";
 import { IvsDraw } from './ivs.js'
 import { debug } from './debug.js';
 import { AudioPlayerGxx, AudioPlayerAAC } from './audioPlayer.js';
+import VideoWorker from './module/videoWorker.js?worker';
+import AudioWorker from './module/audioWorker.js?worker';
 
 export default function WorkerManager() {
     function a() {
@@ -343,8 +345,8 @@ export default function WorkerManager() {
             eb = videoConfig,
             o.channel = channelNumber;
             window.navigator.userAgent;
-            l = new Worker("module/videoWorker.js"),
-            m = new Worker("module/audioWorker.js"),
+            l = new VideoWorker({ name: 'video' }),
+            m = new AudioWorker({ name: 'audio' }),
             l.onmessage = d,
             m.onmessage = e;
             var bufferSize = audioTalkEnabled === !0 ? 500 : 15;

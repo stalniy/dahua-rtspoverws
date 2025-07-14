@@ -1,11 +1,11 @@
 import { defineConfig, loadEnv } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { resolve } from 'path';
 
 export default defineConfig(({ command, mode }) => {
   const isProduction = command === 'build';
   const env = loadEnv(mode, process.cwd(), '');
-  
+  console.log(env.DEBUG, "debug");
+
   return {
     root: 'src',
     // For dev server, use index.html as entry point
@@ -15,7 +15,7 @@ export default defineConfig(({ command, mode }) => {
         open: true,
       }
     }),
-    
+
     build: {
       target: "esnext",
       minify: false,
@@ -26,7 +26,7 @@ export default defineConfig(({ command, mode }) => {
       // Only use lib config for production builds
       ...(isProduction && {
         lib: {
-          entry: resolve(__dirname, 'src/PlayerControl.js'),
+          entry: resolve(__dirname, 'src/dahua-player.js'),
           fileName: 'dahua',
           name: 'Dahua',
           formats: ['es']
@@ -34,17 +34,21 @@ export default defineConfig(({ command, mode }) => {
       })
     },
     define: {
-      'process.env.CAMERA_IP': JSON.stringify(env.CAMERA_IP)
+      'process.env.CAMERA_IP': JSON.stringify(env.CAMERA_IP),
+      'process.env.DEBUG': env.DEBUG === 'true'
     },
-    plugins: [
-      viteStaticCopy({
-        targets: [
-        {
-          src: resolve(__dirname, 'src/module') + '/[!.]*', 
-          dest: './module',
-        },
-        ],
-      }),
-    ]
+    worker: {
+      format: 'es'
+    }
+    // plugins: [
+    //   viteStaticCopy({
+    //     targets: [
+    //     {
+    //       src: resolve(__dirname, 'src/module') + '/[!.]*',
+    //       dest: './module',
+    //     },
+    //     ],
+    //   }),
+    // ]
   };
 });

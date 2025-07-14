@@ -1,4 +1,4 @@
-let isDebugEnabled = false;
+let isDebugEnabled = process.env.DEBUG;
 
 export const debug = isDebugEnabled ?  console : {
     log: function(a) {},

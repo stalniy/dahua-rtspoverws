@@ -3,6 +3,8 @@ import {
   ImageWebGLCanvas,
   YUVWebGLCanvas,
 } from "./module/WebGLCanvas";
+import { debug } from "./debug.js";
+import { base64ArrayBuffer } from "/module/public1.js";
 
 ("use strict");
 function BufferNode(a) {
@@ -37,7 +39,7 @@ function StreamDrawer(a, b, c) {
           );
         },
         clear: function () {
-          console.log("BufferQueue clear!");
+          debug.log("BufferQueue clear!");
           for (var a = null; null !== this.first; )
             (a = this.first),
               (this.first = this.first.next),
@@ -89,7 +91,7 @@ function StreamDrawer(a, b, c) {
       null !== w && i.timeStamp(w),
       "undefined" != typeof m
         ? (m.drawCanvas(a), D && ((D = !1), f(l.toDataURL(), C)), A.free(a), !0)
-        : (console.log("drawer is undefined in StreamDrawer!"), !1)
+        : (debug.log("drawer is undefined in StreamDrawer!"), !1)
     );
   }
   function h() {
@@ -321,7 +323,7 @@ function StreamDrawer(a, b, c) {
             (B = null),
             !0
           );
-        console.log("drawer is undefined in StreamDrawer!");
+        debug.log("drawer is undefined in StreamDrawer!");
       }
       return !1;
     },
@@ -397,7 +399,7 @@ function StreamDrawer(a, b, c) {
                 (l.updatedCanvas = !0),
                 D && ((D = !1), f(l.toDataURL(), C)),
                 !0)
-              : (console.log("drawer is undefined in StreamDrawer!"), !1))
+              : (debug.log("drawer is undefined in StreamDrawer!"), !1))
           : void (null !== L && L.enqueue(a, b, c, d, e, g));
       },
       capture: function (a) {
@@ -492,7 +494,7 @@ var ImagePool = function () {
 }),
   (ImagePool.prototype.free = function (a) {
     a.length > 0 &&
-      (console.log("It is not zero length = " + a.length),
+      (debug.log("It is not zero length = " + a.length),
       this._objpool.push(a),
       this.metrics.totalfree++);
   }),
