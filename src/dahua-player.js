@@ -66,7 +66,7 @@ class DahuaPlayer extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {
-          display: block;
+          display: flex;
           position: relative;
           width: 100%;
           height: 100%;
@@ -78,11 +78,12 @@ class DahuaPlayer extends HTMLElement {
         }
 
         .video-container {
-          width: 100%;
-          height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
+          height: 100%;
+          margin: auto;
         }
 
         .video-canvas-container {
