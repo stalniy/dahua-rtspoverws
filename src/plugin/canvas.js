@@ -1472,7 +1472,7 @@ coverAndObserve(videoCanvas) {
         width: videoCanvas.offsetWidth,
         height: videoCanvas.offsetHeight,
     };
-    this.reizeObserver = new ResizeObserver(() => {
+    this.resizeObserver = new ResizeObserver(() => {
         if (size.width === videoCanvas.offsetWidth && size.height === videoCanvas.offsetHeight) {
             return;
         }
@@ -1486,7 +1486,7 @@ coverAndObserve(videoCanvas) {
         size.width = videoCanvas.offsetWidth;
         size.height = videoCanvas.offsetHeight;
     });
-    this.reizeObserver.observe(videoCanvas);
+    this.resizeObserver.observe(videoCanvas);
 },
 hide: function() {
     this.canvasDom.style.top = "-10000px",

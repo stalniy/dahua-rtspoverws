@@ -1,21 +1,22 @@
 import { PlayerControl } from "./PlayerControl.js";
 import { CanvasDrawer } from "./plugin/canvas.js";
+import { debug } from "./debug.js";
 
 class DahuaPlayer extends HTMLElement {
+  #playerInitializerId = NaN;
+  #isPlayerConnected = false;
+  #controlsTimeout = null;
+  #videoCanvas = null;
+  #ivsCanvasDrawer = null;
+  #player = null;
+  #isFullscreen = false;
+  #isIVSEnabled = false;
+  #isAudioEnabled = false;
+  #isPlaying = false;
+
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.isPlaying = false;
-    this.isAudioEnabled = false;
-    this.isIVSEnabled = false;
-    this.isFullscreen = false;
-    this.player = null;
-    this.ivsCanvasDrawer = null;
-    this.videoCanvas = null;
-    this.controlsVisible = false;
-    this.controlsTimeout = null;
-    this.playerInitializerId = null;
-    this.isPlayerConnected = false;
   }
 
   static get observedAttributes() {
@@ -23,44 +24,37 @@ class DahuaPlayer extends HTMLElement {
   }
 
   connectedCallback() {
-    this.render();
-    this.setupEventListeners();
-    // this.initializePlayer();
+    this.#render();
+    this.#setupEventListeners();
   }
 
   disconnectedCallback() {
-    if (this.player) {
-      this.player.close();
-
-      // Dispatch disconnected event
+    if (this.#player) {
+      this.#disconnectPlayer();
       this.dispatchEvent(new CustomEvent('disconnected', {
-        detail: {
-          cameraIp: this.getAttribute('camera-ip'),
-          channel: this.getAttribute('channel')
-        }
+        bubbles: false,
       }));
     }
-    if (this.ivsCanvasDrawer) {
-      this.ivsCanvasDrawer.close();
-    }
-    this.removeEventListeners();
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue !== newValue) {
-      clearTimeout(this.playerInitializerId);
-      this.playerInitializerId = setTimeout(() => {
-        this.initializePlayer();
+      clearTimeout(this.#playerInitializerId);
+      this.#playerInitializerId = setTimeout(() => {
+        this.#disconnectPlayer();
+        this.#initializePlayer();
       }, 100);
     }
   }
 
-  render() {
-    // const cameraIp = this.getAttribute('camera-ip') || '192.168.1.100';
-    // const channel = this.getAttribute('channel') || '1';
-    // const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=0&proto=Private3`;
-    // const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
+  #disconnectPlayer() {
+    if (this.#player) {
+      this.#player.close();
+      this.#ivsCanvasDrawer?.close();
+    }
+  }
 
+  #render() {
     const previewImage = this.getAttribute('preview-image');
 
     this.shadowRoot.innerHTML = `
@@ -288,97 +282,89 @@ class DahuaPlayer extends HTMLElement {
     `;
   }
 
-  setupEventListeners() {
+  #setupEventListeners() {
     const container = this.shadowRoot.querySelector('.video-container');
-    const controlsOverlay = this.shadowRoot.querySelector('#controls-overlay');
     const playPauseBtn = this.shadowRoot.querySelector('#play-pause-btn');
     const volumeBtn = this.shadowRoot.querySelector('#volume-btn');
     const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
     const ivsBtn = this.shadowRoot.querySelector('#ivs-btn');
     const fullscreenBtn = this.shadowRoot.querySelector('#fullscreen-btn');
 
-    // Mouse events for controls visibility
-    container.addEventListener('mouseenter', () => this.showControls());
-    container.addEventListener('mouseleave', () => this.hideControls());
-    container.addEventListener('mousemove', () => this.showControls());
+    container.addEventListener('mouseenter', () => this.#showControls());
+    container.addEventListener('mouseleave', () => this.#hideControls());
+    container.addEventListener('mousemove', () => this.#showControls(), { passive: true });
 
-    // Control button events
-    playPauseBtn.addEventListener('click', () => this.togglePlay());
-    volumeBtn.addEventListener('click', () => this.toggleAudio());
+    playPauseBtn.addEventListener('click', () => this.#togglePlay());
+    volumeBtn.addEventListener('click', () => this.#toggleAudio());
     volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
-    ivsBtn.addEventListener('click', () => this.toggleIVS());
-    fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+    ivsBtn.addEventListener('click', () => this.#toggleIVS());
+    fullscreenBtn.addEventListener('click', () => this.#toggleFullscreen());
 
-    // Keyboard events
     this.addEventListener('keydown', (e) => {
+      e.preventDefault();
+
       switch(e.code) {
         case 'Space':
-          e.preventDefault();
-          this.togglePlay();
+          this.#togglePlay();
           break;
         case 'KeyM':
-          e.preventDefault();
-          this.toggleAudio();
+          this.#toggleAudio();
           break;
         case 'KeyF':
-          e.preventDefault();
-          this.toggleFullscreen();
+          this.#toggleFullscreen();
           break;
         case 'KeyI':
-          e.preventDefault();
-          this.toggleIVS();
+          this.#toggleIVS();
           break;
       }
     });
   }
 
-  removeEventListeners() {
-    // Clean up event listeners if needed
-  }
+  #initializePlayer() {
+    const cameraIp = this.getAttribute('camera-ip');
 
-  initializePlayer() {
-    const cameraIp = this.getAttribute('camera-ip') || '192.168.1.100';
+    if (!cameraIp) {
+      this.#showError('camera-ip attribute is required');
+      return;
+    }
+
     const channel = parseInt(this.getAttribute('channel'), 10) || 1;
     const subtype = parseInt(this.getAttribute('subtype'), 10) || 0;
     const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=${subtype}&proto=Private3`;
     const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
 
-    this.videoCanvas = this.shadowRoot.querySelector('#video-canvas');
+    this.#videoCanvas = this.shadowRoot.querySelector('#video-canvas');
     const loadingEl = this.shadowRoot.querySelector('#loading');
-    const errorEl = this.shadowRoot.querySelector('#error');
 
     try {
-      this.player = new PlayerControl({
+      this.#player = new PlayerControl({
         wsURL: wsUrl,
         rtspURL: rtspUrl,
-        authenticate: async (e) => {
-          try {
-            const digestResponse = await fetch(`http://localhost:12345`, {
-              method: 'POST',
-              body: JSON.stringify(e)
-            });
-            const credentials = await digestResponse.json();
-            return credentials;
-          } catch (error) {
-            console.error('Authentication failed:', error);
-            this.showError('Authentication failed. Please check your credentials.');
-            return null;
-          }
+        authenticate: (authDetails) => {
+          return new Promise((resolve, reject) => {
+            this.dispatchEvent(new CustomEvent('authenticate', {
+              detail: { authDetails, resolve, reject },
+              bubbles: false,
+            }));
+          }).catch((error) => {
+            debug.error('Authentication failed:', error);
+            this.#showError('Authentication failed. Please check your credentials.');
+          });
         },
       });
 
-      this.ivsCanvasDrawer = new CanvasDrawer({
+      this.#ivsCanvasDrawer = new CanvasDrawer({
         channel: parseInt(channel),
-        canvasParent: this.videoCanvas.parentNode,
+        canvasParent: this.#videoCanvas.parentNode,
       });
 
-      this.ivsCanvasDrawer.coverAndObserve(this.videoCanvas);
+      this.#ivsCanvasDrawer.coverAndObserve(this.#videoCanvas);
 
-      this.player.on("Error", (j) => {
+      this.#player.on("Error", (j) => {
         if (j) {
           console.log(j.errorCode);
           const errorMessage = `Connection error: ${j.errorCode}`;
-          this.showError(errorMessage);
+          this.#showError(errorMessage);
 
           // Dispatch error event
           this.dispatchEvent(new CustomEvent('error', {
@@ -387,11 +373,11 @@ class DahuaPlayer extends HTMLElement {
         }
       });
 
-      this.player.on("IvsDraw", (data) => {
-        this.ivsCanvasDrawer?.receiveDataFromStream(data);
+      this.#player.on("IvsDraw", (data) => {
+        this.#ivsCanvasDrawer?.receiveDataFromStream(data);
       });
 
-      this.player.on('WorkerReady', () => {
+      this.#player.on('WorkerReady', () => {
         console.log('worker is ready');
         loadingEl.style.display = 'none';
 
@@ -405,16 +391,14 @@ class DahuaPlayer extends HTMLElement {
         }
       });
 
-      this.player.init(this.videoCanvas, {}, channel);
-
-      console.log('initialized player');
+      this.#player.init(this.#videoCanvas, {}, channel);
     } catch (error) {
-      console.error('Failed to initialize player:', error);
-      this.showError('Failed to initialize player. Please check your configuration.');
+      debug.error('Failed to initialize player:', error);
+      this.#showError('Failed to initialize player. Please check your configuration.');
     }
   }
 
-  showError(message) {
+  #showError(message) {
     const loadingEl = this.shadowRoot.querySelector('#loading');
     const errorEl = this.shadowRoot.querySelector('#error');
 
@@ -423,26 +407,26 @@ class DahuaPlayer extends HTMLElement {
     errorEl.textContent = message;
   }
 
-  showControls() {
+  #showControls() {
     const controlsOverlay = this.shadowRoot.querySelector('#controls-overlay');
     controlsOverlay.classList.add('visible');
 
-    if (this.controlsTimeout) {
-      clearTimeout(this.controlsTimeout);
+    if (this.#controlsTimeout) {
+      clearTimeout(this.#controlsTimeout);
     }
 
-    this.controlsTimeout = setTimeout(() => {
-      this.hideControls();
+    this.#controlsTimeout = setTimeout(() => {
+      this.#hideControls();
     }, 3000);
   }
 
-  hideControls() {
+  #hideControls() {
     const controlsOverlay = this.shadowRoot.querySelector('#controls-overlay');
     controlsOverlay.classList.remove('visible');
   }
 
-  togglePlay() {
-    if (!this.player) return;
+  #togglePlay() {
+    if (!this.#player) return;
 
     if (this.isPlaying) {
       this.pause();
@@ -451,7 +435,7 @@ class DahuaPlayer extends HTMLElement {
     }
   }
 
-  updatePlayButton() {
+  #updatePlayButton() {
     const playPauseBtn = this.shadowRoot.querySelector('#play-pause-btn');
     const icon = playPauseBtn.querySelector('.icon');
 
@@ -464,80 +448,80 @@ class DahuaPlayer extends HTMLElement {
     }
   }
 
-  toggleAudio() {
-    if (!this.player) return;
+  #toggleAudio() {
+    if (!this.#player) return;
 
-    this.isAudioEnabled = !this.isAudioEnabled;
+    this.#isAudioEnabled = !this.isAudioEnabled;
     const volumeBtn = this.shadowRoot.querySelector('#volume-btn');
     const icon = volumeBtn.querySelector('.icon');
     const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
 
     if (this.isAudioEnabled) {
-      this.player.setAudioVolume(parseFloat(volumeSlider.value));
+      this.#player.setAudioVolume(parseFloat(volumeSlider.value));
       icon.className = 'icon icon-volume';
       volumeBtn.classList.add('active');
     } else {
-      this.player.setAudioVolume(0);
+      this.#player.setAudioVolume(0);
       icon.className = 'icon icon-volume-mute';
       volumeBtn.classList.remove('active');
     }
   }
 
   setVolume(value) {
-    if (!this.player) return;
+    if (!this.#player) return;
 
     const volume = parseFloat(value);
-    this.player.setAudioVolume(volume);
+    this.#player.setAudioVolume(volume);
 
     const volumeBtn = this.shadowRoot.querySelector('#volume-btn');
     const icon = volumeBtn.querySelector('.icon');
 
     if (volume > 0) {
-      this.isAudioEnabled = true;
+      this.#isAudioEnabled = true;
       icon.className = 'icon icon-volume';
       volumeBtn.classList.add('active');
     } else {
-      this.isAudioEnabled = false;
+      this.#isAudioEnabled = false;
       icon.className = 'icon icon-volume-mute';
       volumeBtn.classList.remove('active');
     }
   }
 
-  toggleIVS() {
-    if (!this.ivsCanvasDrawer) return;
+  #toggleIVS() {
+    if (!this.#ivsCanvasDrawer) return;
 
-    this.isIVSEnabled = !this.isIVSEnabled;
+    this.#isIVSEnabled = !this.#isIVSEnabled;
     const ivsBtn = this.shadowRoot.querySelector('#ivs-btn');
 
-    if (this.isIVSEnabled) {
-      this.ivsCanvasDrawer.SetIVSEnable(true);
-      this.ivsCanvasDrawer.cover({
-        width: this.videoCanvas.offsetWidth,
-        height: this.videoCanvas.offsetHeight,
+    if (this.#isIVSEnabled) {
+      this.#ivsCanvasDrawer.SetIVSEnable(true);
+      this.#ivsCanvasDrawer.cover({
+        width: this.#videoCanvas.offsetWidth,
+        height: this.#videoCanvas.offsetHeight,
         top: 0,
         left: 0,
         zindex: this.isPlaying ? 10002 : 1
       });
       ivsBtn.classList.add('active');
     } else {
-      this.ivsCanvasDrawer.SetIVSEnable(false);
+      this.#ivsCanvasDrawer.SetIVSEnable(false);
       ivsBtn.classList.remove('active');
     }
   }
 
-  toggleFullscreen() {
+  #toggleFullscreen() {
     if (!document.fullscreenElement) {
       this.requestFullscreen();
-      this.isFullscreen = true;
+      this.#isFullscreen = true;
     } else {
       document.exitFullscreen();
-      this.isFullscreen = false;
+      this.#isFullscreen = false;
     }
 
     const fullscreenBtn = this.shadowRoot.querySelector('#fullscreen-btn');
     const icon = fullscreenBtn.querySelector('.icon');
 
-    if (this.isFullscreen) {
+    if (this.#isFullscreen) {
       icon.className = 'icon icon-fullscreen-exit';
       fullscreenBtn.title = 'Exit Fullscreen';
     } else {
@@ -546,73 +530,72 @@ class DahuaPlayer extends HTMLElement {
     }
   }
 
-  // Public API methods
   play() {
-    if (!this.player || this.isPlaying) return;
+    if (!this.#player || this.isPlaying) return;
 
-    if (!this.isPlayerConnected) {
-      this.player.connect();
-      this.isPlayerConnected = true;
+    if (!this.#isPlayerConnected) {
+      this.#player.connect();
+      this.#isPlayerConnected = true;
     } else {
-      this.player.play();
+      this.#player.play();
     }
 
-    this.isPlaying = true;
-    this.updatePlayButton();
-    this.hidePreviewImage();
+    this.#isPlaying = true;
+    this.#updatePlayButton();
+    this.#hidePreviewImage();
   }
 
   pause() {
-    if (!this.player || !this.isPlaying) return;
+    if (!this.#player || !this.isPlaying) return;
 
-    this.player.pause();
-    this.isPlaying = false;
-    this.updatePlayButton();
+    this.#player.pause();
+    this.#isPlaying = false;
+    this.#updatePlayButton();
   }
 
   stop() {
-    if (this.player) {
-      this.player.stop();
-      this.isPlaying = false;
-      this.updatePlayButton();
-      this.showPreviewImage();
+    if (this.#player) {
+      this.#player.stop();
+      this.#isPlaying = false;
+      this.#updatePlayButton();
+      this.#showPreviewImage();
     }
   }
 
   capture(filename) {
-    if (this.player) {
-      this.player.capture(filename);
+    if (this.#player) {
+      this.#player.capture(filename);
     }
   }
 
   setVolume(volume) {
-    if (!this.player) return;
+    if (!this.#player) return;
 
     const volumeValue = parseFloat(volume);
-    this.player.setAudioVolume(volumeValue);
+    this.#player.setAudioVolume(volumeValue);
 
     const volumeBtn = this.shadowRoot.querySelector('#volume-btn');
     const icon = volumeBtn.querySelector('.icon');
 
     if (volumeValue > 0) {
-      this.isAudioEnabled = true;
+      this.#isAudioEnabled = true;
       icon.className = 'icon icon-volume';
       volumeBtn.classList.add('active');
     } else {
-      this.isAudioEnabled = false;
+      this.#isAudioEnabled = false;
       icon.className = 'icon icon-volume-mute';
       volumeBtn.classList.remove('active');
     }
   }
 
   enableIVS() {
-    if (!this.ivsCanvasDrawer) return;
+    if (!this.#ivsCanvasDrawer) return;
 
-    this.isIVSEnabled = true;
-    this.ivsCanvasDrawer.SetIVSEnable(true);
-    this.ivsCanvasDrawer.cover({
-      width: this.videoCanvas.offsetWidth,
-      height: this.videoCanvas.offsetHeight,
+    this.#isIVSEnabled = true;
+    this.#ivsCanvasDrawer.SetIVSEnable(true);
+    this.#ivsCanvasDrawer.cover({
+      width: this.#videoCanvas.offsetWidth,
+      height: this.#videoCanvas.offsetHeight,
       top: 0,
       left: 0,
       zindex: this.isPlaying ? 10002 : 1
@@ -623,82 +606,36 @@ class DahuaPlayer extends HTMLElement {
   }
 
   disableIVS() {
-    if (!this.ivsCanvasDrawer) return;
+    if (!this.#ivsCanvasDrawer) return;
 
-    this.isIVSEnabled = false;
-    this.ivsCanvasDrawer.SetIVSEnable(false);
+    this.#isIVSEnabled = false;
+    this.#ivsCanvasDrawer.SetIVSEnable(false);
 
     const ivsBtn = this.shadowRoot.querySelector('#ivs-btn');
     ivsBtn.classList.remove('active');
   }
 
   // Add preview image methods
-  hidePreviewImage() {
+  #hidePreviewImage() {
     const previewImage = this.shadowRoot.querySelector('#preview-image');
     if (previewImage) {
       previewImage.classList.add('hidden');
     }
   }
 
-  showPreviewImage() {
+  #showPreviewImage() {
     const previewImage = this.shadowRoot.querySelector('#preview-image');
     if (previewImage) {
       previewImage.classList.remove('hidden');
     }
   }
 
-  // Getter methods for state
   get isPlaying() {
-    return this._isPlaying || false;
+    return this.#isPlaying;
   }
 
   get isAudioEnabled() {
-    return this._isAudioEnabled || false;
-  }
-
-  get isIVSEnabled() {
-    return this._isIVSEnabled || false;
-  }
-
-  get isFullscreen() {
-    return this._isFullscreen || false;
-  }
-
-  get autoplay() {
-    return this.hasAttribute('autoplay');
-  }
-
-  // Setter methods for state
-  set isPlaying(value) {
-    this._isPlaying = value;
-  }
-
-  set isAudioEnabled(value) {
-    this._isAudioEnabled = value;
-  }
-
-  set isIVSEnabled(value) {
-    this._isIVSEnabled = value;
-  }
-
-  set isFullscreen(value) {
-    this._isFullscreen = value;
-  }
-
-  set autoplay(value) {
-    if (value) {
-      this.setAttribute('autoplay', '');
-    } else {
-      this.removeAttribute('autoplay');
-    }
-  }
-
-  set previewImage(value) {
-    if (value) {
-      this.setAttribute('preview-image', value);
-    } else {
-      this.removeAttribute('preview-image');
-    }
+    return this.#isAudioEnabled;
   }
 }
 

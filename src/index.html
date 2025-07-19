@@ -259,6 +259,15 @@
       dahuaPlayer.setAttribute('subtype', subtype);
       updatePlayer();
 
+      dahuaPlayer.addEventListener('authenticate', (event) => {
+        fetch(`http://localhost:12345`, {
+          method: 'POST',
+          body: JSON.stringify(event.detail.authDetails)
+        })
+        .then((response) => response.json())
+        .then(event.detail.resolve, event.detail.reject)
+      });
+
       // Control functions
       window.play = function() {
         if (dahuaPlayer) {
