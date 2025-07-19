@@ -1,12 +1,7 @@
-"use strict";
-
 import { debug } from '../debug.js';
-import { G711Session } from './g711Session.js';
-import { G726Session } from './g726Session.js';
-import { AACSession } from './aacSession.js';
 
 debug.log("audio worker loaded")
-addEventListener("message", receiveMessage, false);
+addEventListener("message", receiveMessage, !1);
 
 var audioRtpSessionsArray = []
   , sdpInfo = null
@@ -34,13 +29,15 @@ function receiveMessage(a) {
     }
 }
 async function setAudioRtpSession(a, b) {
+    let G711Session, G726Session, AACSession;
     for (var c = a, d = 0; d < a.length; d++)
-        if (-1 === c[d].trackID.indexOf("trackID=t")) {
+        if (-1 === c[d].trackID.search("trackID=t")) {
             switch (rtpSession = null,
             c[d].codecName) {
             case "G.711A":
             case "G.711Mu":
-                rtpSession = new G711Session(c[d].codecName),
+                G711Session = await import('./g711Session.js').then(m => m.G711Session);
+                rtpSession = new G711Session(c[d].codecName);
                 rtpSession.setCodecInfo(c[d]);
                 break;
             case "G.726-16":
@@ -48,18 +45,21 @@ async function setAudioRtpSession(a, b) {
             case "G.726-32":
             case "G.726-40":
                 var e = parseInt(c[d].codecName.substr(6, 2));
-                debug.log(e),
+                debug.log(e);
+                G726Session = await import('./g726Session.js').then(m => m.G726Session);
                 rtpSession = new G726Session(e);
                 break;
             case "mpeg4-generic":
                 AACSession = await import('./aacSession.js').then(m => m.AACSession);
                 rtpSession = new AACSession();
-                debug.log("aacCodecInfo: ", b);
+                debug.log("aacCodecInfo:  " + JSON.stringify(b)),
                 rtpSession.setCodecInfo(b)
+                break;
             }
             var f = c[d].RtpInterlevedID;
-            audioRtpSessionsArray[f] = rtpSession;
-            if (rtpSession) return;
+            if (audioRtpSessionsArray[f] = rtpSession,
+            null != rtpSession)
+                return
         }
 }
 function sendMessage(a, b) {
