@@ -1505,8 +1505,8 @@ var ImageTexture = (function () {
                 ? c + "(" + b + ")"
                 : "Unknown WebGL ENUM (0x" + value.toString(16) + ")"),
               a
-                ? console.log("WebGL Error: %s, %s", a, c)
-                : console.log("WebGL Error: %s", c),
+                ? debug.log("WebGL Error: %s, %s", a, c)
+                : debug.log("WebGL Error: %s", c),
               debug.trace();
           }
         },
@@ -1514,8 +1514,8 @@ var ImageTexture = (function () {
           try {
             this.gl = this.canvas.getContext("webgl");
           } catch (a) {
-            console.log(this.canvas)
-            console.log("inInitWebGL error = " + a);
+            debug.log(this.canvas)
+            debug.log("inInitWebGL error = " + a);
           }
 
 
@@ -1577,7 +1577,7 @@ var ImageTexture = (function () {
             this.drawScene();
         },
         setViewport: function (a, b) {
-          console.log("toWidth=" + a + ",toHeight=" + b);
+          debug.log("toWidth=" + a + ",toHeight=" + b);
           var c, d;
           this.gl.drawingBufferWidth < a || this.gl.drawingBufferHeight < b
             ? ((c = this.gl.drawingBufferWidth),

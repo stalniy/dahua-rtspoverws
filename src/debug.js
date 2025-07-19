@@ -1,9 +1,10 @@
 let isDebugEnabled = process.env.DEBUG;
 
+const noop = () => {};
 export const debug = isDebugEnabled ?  console : {
-    log: function(a) {},
-    error: function(a) {},
-    count: function(a) {},
-    info: function(a) {},
-    trace: function(a) {}
+    log: noop,
+    error: noop,
+    count: noop,
+    info: noop,
+    trace: noop
 };

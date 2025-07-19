@@ -81,7 +81,7 @@ export function CanvasDrawerPlugin() {
                         g = b.parents[b.tempData.data.shapeId],
                         b.tempShape = b.shape[i.option.type + "Shape"],
                         b.tempData.data.option.zindex = utils.zindex++,
-                        b.tempDataCopy = a.extend(!0, {}, b.tempData),
+                        b.tempDataCopy = deepExtend({}, b.tempData),
                         !1;
                     if ("rhombus" === i.option.type) {
                         var j = b.shape.rhombusShape.checkOnLine(h, i);
@@ -92,7 +92,7 @@ export function CanvasDrawerPlugin() {
                             b.tempData = j,
                             b.tempData.data.option.zindex = utils.zindex++,
                             beginPoint = [Math.round((h.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((h.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)],
-                            b.tempDataCopy = a.extend(!0, {}, j),
+                            b.tempDataCopy = deepExtend({}, j),
                             !1
                     }
                     if (b.tempData = b.shape[i.option.type + "Shape"].checkSelected(h, i),
@@ -119,13 +119,13 @@ export function CanvasDrawerPlugin() {
                                 c.childrenShapeData.push(f)
                             }),
                             beginPoint = [Math.round((h.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((h.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)],
-                            e = a.extend(!0, {}, c)
+                            e = deepExtend({}, c)
                         } else
                             c = null,
                             b.tempShape = b.shape[i.option.type + "Shape"],
                             b.tempData.data.option.zindex = utils.zindex++,
                             beginPoint = [Math.round((h.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((h.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)],
-                            b.tempDataCopy = a.extend(!0, {}, b.tempData);
+                            b.tempDataCopy = deepExtend({}, b.tempData);
                         return !1
                     }
                 }),
@@ -137,7 +137,7 @@ export function CanvasDrawerPlugin() {
                 if (f = !0,
                 "poly" === b.tempData.data.option.type && g && g.length > 0) {
                     var i = b.tempDataCopy.point
-                      , j = a.extend(!0, [], b.tempData.data.data)
+                      , j = deepExtend([], b.tempData.data.data)
                       , k = [Math.round((h.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((h.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)];
                     j[i] = k;
                     var l = i - 1
@@ -213,7 +213,7 @@ export function CanvasDrawerPlugin() {
     }
     ,
     this.addShape = function(c, e, f) {
-        f = a.extend(!0, {}, g, f),
+        f = deepExtend({}, g, f),
         f.zindex = utils.zindex++,
         f.type = e;
         var h = b.shape[e + "Shape"].add(c, f);
@@ -224,8 +224,8 @@ export function CanvasDrawerPlugin() {
     }
     ,
     this.drawStart = function(c, d) {
-        var e = a.extend(!0, {}, g, d);
-        d = a.extend(d, e),
+        var e = deepExtend({}, g, d);
+        d = extend(d, e),
         b.shape[c + "Shape"].drawStart(d)
     }
     ,
@@ -255,7 +255,7 @@ export function CanvasDrawerPlugin() {
             return a.each(b.shape, function(a, b) {
                 d = d.concat(b.data)
             }),
-            a.extend(!0, [], d)
+            deepExtend([], d)
         }
         for (const oneShape in b.shape)
             for (var d = b.shape[oneShape].data, e = 0; e < d.length; e++)
@@ -274,7 +274,7 @@ export function CanvasDrawerPlugin() {
         for (const oneShape in b.shape)
             for (var e = b.shape[oneShape].data, f = 0; f < e.length; f++)
                 if (e[f].shapeId == c) {
-                    var g = a.extend(!0, {}, e[f]);
+                    var g = deepExtendx({}, e[f]);
                     return g.event = {},
                     e.splice(f, 1),
                     b.parents && b.parents[c] && b.disParent(c),
@@ -391,7 +391,7 @@ export function CanvasDrawerPlugin() {
         for (const oneShape in b.shape)
             for (var e = b.shape[oneShape].data, f = 0; f < e.length; f++)
                 if (e[f].shapeId == c)
-                    return e[f].option = a.extend(!0, e[f].option, d),
+                    return e[f].option = deepExtend(e[f].option, d),
                     b.drawShape(),
                     e[f]
     }

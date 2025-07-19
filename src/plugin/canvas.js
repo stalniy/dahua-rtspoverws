@@ -1,4 +1,5 @@
 import { CanvasDrawerPlugin } from './canvasLib/pluginCanvas';
+import { debug } from '../debug.js';
 
 function a(a, b) {
     if ("GridShape" === a.ruleType) {
@@ -1429,10 +1430,9 @@ sdevInit: function() {
     )
 },
 init(canvasParent = document.body) {
-    console.log('init canvas');
+    debug.log('init canvas');
     this.ivsCanvasDom = document.createElement("canvas"),
     this.ivsCanvasDom.style.cssText = "position:absolute; top:-10000px",
-    console.log(this.ivsCanvasDom, "<---");
     canvasParent.appendChild(this.ivsCanvasDom),
     this.ivsCanvasDraw = new CanvasDrawerPlugin(),
     this.ivsCanvasDraw.init(this.ivsCanvasDom),

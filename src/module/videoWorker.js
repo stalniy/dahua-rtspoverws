@@ -33,7 +33,6 @@ function receiveMessage(a) {
         case "sdpInfo":
             sdpInfo = b.data, framerate = 0;
             lockPromise = setVideoRtpSession(sdpInfo);
-            lockPromise.then(() => { lockPromise = null; });
             break;
         case "MediaData":
             if (isStepPlay === !0) {
