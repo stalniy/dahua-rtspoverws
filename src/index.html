@@ -248,10 +248,14 @@
 
       // Make the player globally accessible
       const dahuaPlayer = document.getElementById('dahua-player');
+      const queryString = new URL(window.location.href).searchParams;
+      const cameraIp = queryString.get('cameraIp') || process.env.CAMERA_IP;
+      const cameraChannel = queryString.get('cameraChannel') || '1';
+      const subtype = queryString.get('subtype') || '0';
 
-      document.forms.config.cameraIp.value = process.env.CAMERA_IP;
-      document.forms.config.cameraChannel.value = '1';
-      // dahuaPlayer.setAttribute('subtype', '1');
+      document.forms.config.cameraIp.value = cameraIp;
+      document.forms.config.cameraChannel.value = cameraChannel;
+      dahuaPlayer.setAttribute('subtype', subtype);
       updatePlayer();
 
       // Control functions
