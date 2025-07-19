@@ -167,7 +167,7 @@ export default function WorkerManager() {
             "AAC" === b.codec ? "edge" === I || "firefox" === I ? (q = null,
             null !== A && A({
                 errorCode: 201
-            })) : q = new AudioPlayerAAC : "safari" === I ? (q = null,
+            })) : q = new AudioPlayerAAC : "safari-that-do-not-support-gxx-audio-changed-by-me" === I ? (q = null,
             null !== A && A({
                 errorCode: 201
             })) : (q = new AudioPlayerGxx,
@@ -738,7 +738,6 @@ export default function WorkerManager() {
             W = playMode
         },
         controlAudio: function(audioCommand, audioValue) {
-            console.log(q)
             switch (debug.log(audioCommand + " " + audioValue),
             audioCommand) {
             case "audioPlay":

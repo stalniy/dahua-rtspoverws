@@ -13,6 +13,7 @@ export default defineConfig(({ command, mode }) => {
       // Explicitly set development entry point (optional)
       server: {
         open: true,
+        host: '0.0.0.0'
       }
     }),
 

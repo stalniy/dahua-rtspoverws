@@ -254,5 +254,173 @@ export function VideoBufferList() {
     }, new a
 }
 
+function CommonAudioUtil() {
+  var a = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
+    , b = function(a, b, c) {
+      var d = 0
+        , e = 0;
+      for (d = 0; c > d && !(a < b[e]); d++)
+          e++;
+      return d
+  }
+    , c = function(c, d) {
+      var e = 0
+        , f = 0
+        , g = 0
+        , h = 0
+        , i = 0
+        , j = 0;
+      return e = c > 0 ? c : 8191 & -c,
+      f = b(e, a, 15) - 6,
+      g = 0 === e ? 32 : f >= 0 ? e >> f : e << -f,
+      h = f + (d >> 6 & 15) - 13,
+      i = g * (d & parseInt("077", 8)) + 48 >> 4,
+      j = h >= 0 ? i << h & 32767 : i >> -h,
+      0 > (c ^ d) ? -j : j
+  };
+  this.g726InitState = function() {
+      var a = {}
+        , b = 0;
+      for (a.pp = new Array(2),
+      a.zp = new Array(6),
+      a.pk = new Array(2),
+      a.dq = new Array(6),
+      a.sr = new Array(2),
+      a.yl = 34816,
+      a.yu = 544,
+      a.dms = 0,
+      a.dml = 0,
+      a.ppp = 0,
+      b = 0; 2 > b; b++)
+          a.pp[b] = 0,
+          a.pk[b] = 0,
+          a.sr[b] = 32;
+      for (b = 0; 6 > b; b++)
+          a.zp[b] = 0,
+          a.dq[b] = 32;
+      return a.td = 0,
+      a
+  }
+  ,
+  this.predictorZero = function(a) {
+      var b = 0
+        , d = 0;
+      for (d = c(a.zp[0] >> 2, a.dq[0]),
+      b = 1; 6 > b; b++)
+          d += c(a.zp[b] >> 2, a.dq[b]);
+      return d
+  }
+  ,
+  this.predictorPole = function(a) {
+      return c(a.pp[1] >> 2, a.sr[1]) + c(a.pp[0] >> 2, a.sr[0])
+  }
+  ,
+  this.stepSize = function(a) {
+      var b = 0
+        , c = 0
+        , d = 0;
+      return a.ppp >= 256 ? a.yu : (b = a.yl >> 6,
+      c = a.yu - b,
+      d = a.ppp >> 2,
+      c > 0 ? b += c * d >> 6 : 0 > c && (b += c * d + 63 >> 6),
+      b)
+  }
+  ,
+  this.quantize = function(c, d, e, f) {
+      var g = 0
+        , h = 0
+        , i = 0
+        , j = 0
+        , k = 0
+        , l = 0;
+      return g = Math.abs(c),
+      h = b(g >> 1, a, 15),
+      i = g << 7 >> h & 127,
+      j = (h << 7) + i,
+      k = j - (d >> 2),
+      l = b(k, e, f),
+      0 > c ? (f << 1) + 1 - l : 0 === l ? (f << 1) + 1 : l
+  }
+  ,
+  this.reconstruct = function(a, b, c) {
+      var d = 0
+        , e = 0
+        , f = 0
+        , g = 0;
+      return d = b + (c >> 2),
+      0 > d ? a ? -32768 : 0 : (e = d >> 7 & 15,
+      f = 128 + (127 & d),
+      g = f << 7 >> 14 - e,
+      a ? g - 32768 : g)
+  }
+  ,
+  this.update = function(c, d, e, f, g, h, i, j) {
+      var k = 0
+        , l = 0
+        , m = 0
+        , n = 0
+        , o = 0
+        , p = 0
+        , q = 0
+        , r = 0
+        , s = 0
+        , t = 0
+        , u = 0
+        , v = 0
+        , w = 0
+        , x = 0;
+      if (x = 0 > i ? 1 : 0,
+      l = 32767 & g,
+      s = j.yl >> 15,
+      v = j.yl >> 10 & 31,
+      w = 32 + v << s,
+      t = s > 9 ? 31744 : w,
+      u = t + (t >> 1) >> 1,
+      r = 0 === j.td ? 0 : u >= l ? 0 : 1,
+      j.yu = d + (e - d >> 5),
+      j.yu < 544 ? j.yu = 544 : j.yu > 5120 && (j.yu = 5120),
+      j.yl += j.yu + (-j.yl >> 6),
+      1 === r)
+          j.pp[0] = 0,
+          j.pp[1] = 0,
+          j.zp[0] = 0,
+          j.zp[1] = 0,
+          j.zp[2] = 0,
+          j.zp[3] = 0,
+          j.zp[4] = 0,
+          j.zp[5] = 0,
+          n = 0;
+      else
+          for (p = x ^ j.pk[0],
+          n = j.pp[1] - (j.pp[1] >> 7),
+          0 !== i && (q = p ? j.pp[0] : -j.pp[0],
+          -8191 > q ? n -= 256 : n += q > 8191 ? 255 : q >> 5,
+          x ^ j.pk[1] ? -12160 >= n ? n = -12288 : n >= 12416 ? n = 12288 : n -= 128 : -12416 >= n ? n = -12288 : n >= 12160 ? n = 12288 : n += 128),
+          j.pp[1] = n,
+          j.pp[0] -= j.pp[0] >> 8,
+          0 !== i && (0 === p ? j.pp[0] += 192 : j.pp[0] -= 192),
+          o = 15360 - n,
+          j.pp[0] < -o ? j.pp[0] = -o : j.pp[0] > o && (j.pp[0] = o),
+          k = 0; 6 > k; k++)
+              j.zp[k] -= 5 === c ? j.zp[k] >> 9 : j.zp[k] >> 8,
+              32767 & g && ((g ^ j.dq[k]) >= 0 ? j.zp[k] += 128 : j.zp[k] -= 128);
+      for (k = 5; k > 0; k--)
+          j.dq[k] = j.dq[k - 1];
+      return 0 === l ? j.dq[0] = g >= 0 ? 32 : 64544 : (m = b(l, a, 15),
+      j.dq[0] = g >= 0 ? (m << 6) + (l << 6 >> m) : (m << 6) + (l << 6 >> m) - 1024),
+      j.sr[1] = j.sr[0],
+      0 === h ? j.sr[0] = 32 : h > 0 ? (m = b(h, a, 15),
+      j.sr[0] = (m << 6) + (h << 6 >> m)) : h > -32768 ? (l = -h,
+      m = b(l, a, 15),
+      j.sr[0] = (m << 6) + (l << 6 >> m) - 1024) : j.sr[0] = 64544,
+      j.pk[1] = j.pk[0],
+      j.pk[0] = x,
+      j.td = 1 === r ? 0 : -11776 > n ? 1 : 0,
+      j.dms += f - j.dms >> 5,
+      j.dml += (f << 2) - j.dml >> 7,
+      1 === r ? j.ppp = 256 : j.ppp += 1536 > d ? 512 - j.ppp >> 4 : 1 === j.td ? 512 - j.ppp >> 4 : Math.abs((j.dms << 2) - j.dml) >= j.dml >> 3 ? 512 - j.ppp >> 4 : -j.ppp >> 4,
+      j
+  }
+}
 
-export { Script, Program, Shader, Texture, base64ArrayBuffer, debug };
+export { Script, Program, Shader, Texture, base64ArrayBuffer, debug, CommonAudioUtil };

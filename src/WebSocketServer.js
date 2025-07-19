@@ -573,7 +573,6 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         socket.binaryType = "arraybuffer";
         const queue = new AsyncQueue(handleMessage);
         socket.addEventListener("message", (message) => {
-          console.log("message", queue.queue.size);
           queue.add(message);
           queue.process();
         }, !1);

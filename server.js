@@ -22,19 +22,19 @@ const server = http.createServer(async (req, res) => {
 });
 
 const PORT = 12345;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`camera auth server is listening on port ${PORT}`);
 });
 
 const md5 = (value) => crypto.createHash('md5').update(value).digest('hex');
 
 function digestAuth(user, password, uri, realm, nonce, method) {
-    var g = null,
-      h = null,
-      i = null;
-    return (
-      (g = md5(user + ":" + realm + ":" + password).toLowerCase()),
-      (h = md5(method + ":" + uri).toLowerCase()),
-      (i = md5(g + ":" + nonce + ":" + h).toLowerCase())
-    );
-  }
+  var g = null,
+    h = null,
+    i = null;
+  return (
+    (g = md5(user + ":" + realm + ":" + password).toLowerCase()),
+    (h = md5(method + ":" + uri).toLowerCase()),
+    (i = md5(g + ":" + nonce + ":" + h).toLowerCase())
+  );
+}

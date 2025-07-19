@@ -129,6 +129,9 @@ export function AudioPlayerAAC() {
                 } catch (e) {}
         },
         controlVolumn: function(a) {
+            if (h.state === "suspended") {
+                h.resume();
+            }
             r = a,
             null !== p && (p.volume = 0 >= a ? 0 : a >= 1 ? 1 : a,
             r = a)
