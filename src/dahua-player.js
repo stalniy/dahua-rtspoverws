@@ -19,7 +19,7 @@ class DahuaPlayer extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['camera-ip', 'channel', 'subtype', 'rtsp-url', 'ws-url'];
+    return ['camera-ip', 'channel', 'subtype', 'rtsp-url', 'ws-url', 'autoplay', 'preview-image'];
   }
 
   connectedCallback() {
@@ -61,6 +61,8 @@ class DahuaPlayer extends HTMLElement {
     // const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=0&proto=Private3`;
     // const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
 
+    const previewImage = this.getAttribute('preview-image');
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -92,6 +94,23 @@ class DahuaPlayer extends HTMLElement {
           max-width: 100%;
           max-height: 100%;
           object-fit: contain;
+        }
+
+        .preview-image {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          z-index: 50;
+          opacity: 1;
+          transition: opacity 0.3s ease;
+        }
+
+        .preview-image.hidden {
+          opacity: 0;
+          pointer-events: none;
         }
 
         .controls-overlay {
@@ -202,6 +221,7 @@ class DahuaPlayer extends HTMLElement {
           color: white;
           font-size: 14px;
           opacity: 0.8;
+          z-index: 60;
         }
 
         .error {
@@ -233,6 +253,8 @@ class DahuaPlayer extends HTMLElement {
       </style>
 
       <div class="video-container">
+        ${previewImage ? `<img class="preview-image" id="preview-image" src="${previewImage}" alt="Preview">` : ''}
+
         <div class="video-canvas-container">
           <canvas class="video-canvas" id="video-canvas"></canvas>
         </div>
@@ -373,10 +395,14 @@ class DahuaPlayer extends HTMLElement {
         console.log('worker is ready');
         loadingEl.style.display = 'none';
 
-        // Dispatch connected event
         this.dispatchEvent(new CustomEvent('connected', {
           detail: { cameraIp, channel }
         }));
+
+        // Auto-play if autoplay attribute is set
+        if (this.hasAttribute('autoplay')) {
+          this.play();
+        }
       });
 
       this.player.init(this.videoCanvas, {}, channel);
@@ -533,6 +559,7 @@ class DahuaPlayer extends HTMLElement {
 
     this.isPlaying = true;
     this.updatePlayButton();
+    this.hidePreviewImage();
   }
 
   pause() {
@@ -548,6 +575,7 @@ class DahuaPlayer extends HTMLElement {
       this.player.stop();
       this.isPlaying = false;
       this.updatePlayButton();
+      this.showPreviewImage();
     }
   }
 
@@ -604,6 +632,21 @@ class DahuaPlayer extends HTMLElement {
     ivsBtn.classList.remove('active');
   }
 
+  // Add preview image methods
+  hidePreviewImage() {
+    const previewImage = this.shadowRoot.querySelector('#preview-image');
+    if (previewImage) {
+      previewImage.classList.add('hidden');
+    }
+  }
+
+  showPreviewImage() {
+    const previewImage = this.shadowRoot.querySelector('#preview-image');
+    if (previewImage) {
+      previewImage.classList.remove('hidden');
+    }
+  }
+
   // Getter methods for state
   get isPlaying() {
     return this._isPlaying || false;
@@ -621,6 +664,10 @@ class DahuaPlayer extends HTMLElement {
     return this._isFullscreen || false;
   }
 
+  get autoplay() {
+    return this.hasAttribute('autoplay');
+  }
+
   // Setter methods for state
   set isPlaying(value) {
     this._isPlaying = value;
@@ -636,6 +683,22 @@ class DahuaPlayer extends HTMLElement {
 
   set isFullscreen(value) {
     this._isFullscreen = value;
+  }
+
+  set autoplay(value) {
+    if (value) {
+      this.setAttribute('autoplay', '');
+    } else {
+      this.removeAttribute('autoplay');
+    }
+  }
+
+  set previewImage(value) {
+    if (value) {
+      this.setAttribute('preview-image', value);
+    } else {
+      this.removeAttribute('preview-image');
+    }
   }
 }
 
