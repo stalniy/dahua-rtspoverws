@@ -1,7 +1,8 @@
-import { jQuery } from '../jQuery.js';
+import deepMergeLib from 'deepmerge';
 
+const deepMergeOptions = { clone: false };
 export const deepMerge = (target, source) => {
-    return jQuery.extend(true, target, source);
+    return deepMergeLib(target, source, deepMergeOptions);
 };
 
 export function deepCopy(value, defaultValue) {

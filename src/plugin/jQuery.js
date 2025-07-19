@@ -1,3 +1,3 @@
-import 'https://code.jquery.com/jquery-3.7.1.js';
+import jQuery from "cash-dom";
 
-export const jQuery = window.jQuery;
+export { jQuery };

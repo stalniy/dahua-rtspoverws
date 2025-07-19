@@ -1,4 +1,4 @@
-import { jQuery as a } from '../jQuery.js';
+import { jQuery as $ } from '../jQuery.js';
 import { utils, deepCopy, deepMerge } from './util.js';
 import { FactoryGridShapeAction } from './FactoryGridShapeAction.class.js';
 import * as canvaslib from './canvaslib';
@@ -32,7 +32,7 @@ export function CanvasDrawerPlugin() {
     this.tempDataCopy = "",
     this.parents = {},
     this.init = function(c, f) {
-        (null == b.$canvas || 0 === b.$canvas.length) && (b.$canvas = a(c),
+        (null == b.$canvas || 0 === b.$canvas.length) && (b.$canvas = $(c),
         b.canvasObj = b.$canvas[0],
         b.ctx = b.canvasObj.getContext("2d"),
         b.ctx.font = g.font,
