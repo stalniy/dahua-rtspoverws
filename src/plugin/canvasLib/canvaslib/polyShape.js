@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function PolyShape() {
   var b = this;
@@ -16,9 +16,9 @@ export function PolyShape() {
   this.add = function(c, e) {
       if (b.data.length < b.regionNum) {
           var f = {};
-          return f.data = deepExtend([], c),
+          return f.data = deepCopy(c, []),
           f.shapeId = utils.shapeId++,
-          f.option = deepExtend({}, e),
+          f.option = deepCopy(e, {}),
           b.data.push(f),
           f
       }
@@ -35,7 +35,7 @@ export function PolyShape() {
               f = 0;
               var h = {};
               h.data = [],
-              h.option = deepExtend({}, c),
+              h.option = deepCopy(c, {}),
               h.shapeId = utils.shapeId++,
               h.option.zindex = utils.zindex++,
               h.option.type = b.type,
@@ -176,7 +176,7 @@ export function PolyShape() {
   }
   ,
   this.moveShape = function(a, c, e, f, g) {
-      var h = jQuery.extend(!0, [], f.data)
+      var h = deepCopy(f.data, [])
         , i = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
         , j = i[0] - a[0]
         , k = i[1] - a[1];
@@ -199,9 +199,9 @@ export function PolyShape() {
   }
   ,
   this.resizeShape = function(c, e, f) {
-      var g = jQuery.extend(!0, [], f.data)
+      var g = deepCopy(f.data, [])
         , h = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
-        , i = deepExtend([], f);
+        , i = deepCopy(f, []);
       i.data[c][0] = h[0],
       i.data[c][1] = h[1];
       var j = utils.lineCrossPoly(i.data, c);

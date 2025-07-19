@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function LineShape() {
     var b = this;
@@ -16,9 +16,9 @@ export function LineShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = deepExtend([], c),
+            return f.data = deepCopy(c, []),
             f.shapeId = utils.shapeId++,
-            f.option = deepExtend({}, e),
+            f.option = deepCopy(e, {}),
             b.data.push(f),
             f
         }
@@ -39,16 +39,16 @@ export function LineShape() {
                     var h = []
                       , i = {};
                     i.data = h,
-                    i.option = deepExtend({}, c),
+                    i.option = deepCopy(c, {}),
                     i.shapeId = utils.shapeId++,
                     i.option.zindex = utils.zindex++,
                     i.option.type = b.type,
                     i.option.selected = !0,
                     b.data.push(i),
-                    b.data[b.data.length - 1].data[0] = deepExtend([], e),
+                    b.data[b.data.length - 1].data[0] = deepCopy(e, []),
                     utils.drawState = 1
                 } else
-                    2 === f && (b.data[b.data.length - 1].data[1] = deepExtend([], e))
+                    2 === f && (b.data[b.data.length - 1].data[1] = deepCopy(e, []))
         }),
         b.$canvas.off("mousemove.draw").on("mousemove.draw", function(c) {
             var e = [Math.round((c.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((c.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)];
@@ -58,7 +58,7 @@ export function LineShape() {
                 g.data[1][0] = g.data[0][0],
                 g.data[1][1] = e[1]) : g.option.horizontal ? (g.data[1] = [],
                 g.data[1][1] = g.data[0][1],
-                g.data[1][0] = e[0]) : g.data[1] = deepExtend([], e),
+                g.data[1][0] = e[0]) : g.data[1] = deepCopy(e, []),
                 utils.drawState = 1,
                 b.drawFunc()
             }
@@ -71,7 +71,7 @@ export function LineShape() {
                 e.data[1][0] = e.data[0][0],
                 e.data[1][1] = g[1]) : e.option.horizontal ? (e.data[1] = [],
                 e.data[1][1] = e.data[0][1],
-                e.data[1][0] = g[0]) : e.data[1] = deepExtend([], g),
+                e.data[1][0] = g[0]) : e.data[1] = deepCopy(g, []),
                 e.option.segment && e.option.segment.length > 1) {
                     for (var h = [], i = 0, j = 0; j < e.option.segment.length; j++) {
                         var k = utils.segmentsIntr(e.data[0], e.data[1], e.option.segment[j][0], e.option.segment[j][1]);
@@ -167,7 +167,7 @@ export function LineShape() {
     }
     ,
     this.moveShape = function(a, c, e, f, g) {
-        var h = jQuery.extend(!0, [], f.data)
+        var h = deepCopy(f.data, [])
           , i = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
           , j = i[0] - a[0]
           , k = i[1] - a[1];
@@ -190,18 +190,18 @@ export function LineShape() {
     }
     ,
     this.resizeShape = function(c, e, f, g) {
-        var h = jQuery.extend(!0, [], f.data)
+        var h = deepCopy(f.data, [])
           , i = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)];
         if (g = g || f.option.ignoreMaxPoly,
         g === !0)
             ;
         else if (f.option.maxPoly && f.option.maxPoly.length > 0) {
             var j;
-            if (f.option.vertical ? f.option.horizontal ? (tempLine = deepExtend([], f.data),
+            if (f.option.vertical ? f.option.horizontal ? (tempLine = deepCopy(f.data, []),
             tempLine[c][0] = i[0],
-            j = utils.lineInPoly(tempLine, f.option.maxPoly)) : (tempLine = deepExtend([], f.data),
+            j = utils.lineInPoly(tempLine, f.option.maxPoly)) : (tempLine = deepCopy(f.data, []),
             tempLine[c][1] = i[1],
-            j = utils.lineInPoly(tempLine, f.option.maxPoly)) : (tempLine = deepExtend([], f.data),
+            j = utils.lineInPoly(tempLine, f.option.maxPoly)) : (tempLine = deepCopy(f.data, []),
             tempLine[c][0] = i[0],
             tempLine[c][1] = i[1],
             j = utils.lineInPoly(tempLine, f.option.maxPoly)),

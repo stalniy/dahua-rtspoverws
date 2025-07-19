@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 import { jQuery as  a } from '../../jQuery.js';
 
 function d(a, b, c) {
@@ -38,9 +38,9 @@ export function MotionDetectShape() {
         j = [],
         k = 0;
         var l = {};
-        return l.data = deepExtend([], c),
+        return l.data = deepCopy(c, []),
         l.shapeId = utils.shapeId++,
-        l.option = deepExtend({}, f),
+        l.option = deepCopy(f, {}),
         b.data[0] = l,
         i = [],
         a.each(c, function(b, c) {
@@ -101,7 +101,7 @@ export function MotionDetectShape() {
                 a.each(h, function(a, b) {
                     i[l][b.row][b.column] = j
                 }),
-                f = deepExtend({}, g),
+                f = deepCopy(g, {}),
                 b.drawFunc()
             }
         }),
@@ -159,7 +159,7 @@ export function MotionDetectShape() {
     }
     ,
     this.drawData = function() {
-        var d = deepExtend([], j);
+        var d = deepCopy(j, []);
         d.sort(utils.compareArray);
         for (var g = 0; g < d.length; g++) {
             var h = j.indexOf(d[g])

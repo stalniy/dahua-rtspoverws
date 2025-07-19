@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function ParkingLotShape() {
     var b = this;
@@ -16,9 +16,9 @@ export function ParkingLotShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = deepExtend([], c),
+            return f.data = deepCopy(c, []),
             f.shapeId = utils.shapeId++,
-            f.option = deepExtend({}, e),
+            f.option = deepCopy(e, {}),
             b.data.push(f),
             f
         }
@@ -35,7 +35,7 @@ export function ParkingLotShape() {
                 f = 0;
                 var h = {};
                 h.data = [],
-                h.option = deepExtend({}, c),
+                h.option = deepCopy(c, {}),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,
@@ -218,8 +218,8 @@ export function ParkingLotShape() {
     ,
     this.resizeShape = function(c, e, f) {
         var g = [Math.round((e.clientX - b.$canvas.offset().left + window.scrollX) * b.coordinate.widthMouse), Math.round((e.clientY - b.$canvas.offset().top + window.scrollY) * b.coordinate.heightMouse)]
-          , h = deepExtend([], f)
-          , i = deepExtend([], f)
+          , h = deepCopy(f, [])
+          , i = deepCopy(f, [])
           , j = (i.data.slice(0, 4),
         i.data.slice(0, 4))
           , k = i.data.slice(4);

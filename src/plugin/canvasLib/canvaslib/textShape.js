@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function TextShape() {
     var b = this;
@@ -16,9 +16,9 @@ export function TextShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = deepExtend([], c),
+            return f.data = deepCopy(c, []),
             f.shapeId = utils.shapeId++,
-            f.option = deepExtend({}, e),
+            f.option = deepCopy(e, {}),
             b.data.push(f),
             f
         }

@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function RhombusShape() {
     var b = this;
@@ -16,9 +16,9 @@ export function RhombusShape() {
     this.add = function(c, e) {
         if (b.data.length < b.regionNum) {
             var f = {};
-            return f.data = deepExtend([], c),
+            return f.data = deepCopy(c, []),
             f.shapeId = utils.shapeId++,
-            f.option = deepExtend({}, e),
+            f.option = deepCopy(e, {}),
             f.option.maxRect || (f.option.maxRect = [[0, 0], [8191, 8191]]),
             b.data.push(f),
             f
@@ -35,7 +35,7 @@ export function RhombusShape() {
             0 != f)))) {
                 var h = {};
                 h.data = [],
-                h.option = deepExtend({}, c),
+                h.option = deepCopy(c, {}),
                 h.shapeId = utils.shapeId++,
                 h.option.zindex = utils.zindex++,
                 h.option.type = b.type,

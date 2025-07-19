@@ -1,4 +1,4 @@
-import { utils, deepExtend } from '../util.js';
+import { utils, deepCopy } from '../util.js';
 
 export function ReSpotShape() {
   var b = this;
@@ -38,14 +38,14 @@ export function ReSpotShape() {
               var g = []
                 , h = {};
               h.data = g,
-              h.option = deepExtend({}, c),
+              h.option = deepCopy(c, {}),
               h.shapeId = utils.shapeId++,
               h.option.zindex = utils.zindex++,
               h.option.type = b.type,
               h.option.selected = !0,
               h.option.fillStyle = h.option.fillStyle || "#00FF00",
               b.data[0] = h,
-              b.data[0].data = deepExtend([], e),
+              b.data[0].data = deepCopy(e, []),
               utils.drawState = 1,
               b.drawFunc()
           }
