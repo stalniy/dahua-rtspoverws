@@ -20,7 +20,7 @@ class DahuaPlayer extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['camera-ip', 'channel', 'subtype', 'rtsp-url', 'ws-url', 'autoplay', 'preview-image'];
+    return ['camera-ip', 'channel', 'subtype', 'rtsp-url', 'ws-url', 'autoplay', 'preview-image', 'enable-ivs'];
   }
 
   connectedCallback() {
@@ -29,11 +29,16 @@ class DahuaPlayer extends HTMLElement {
   }
 
   disconnectedCallback() {
+    clearTimeout(this.#playerInitializerId);
     if (this.#player) {
       this.#disconnectPlayer();
       this.dispatchEvent(new CustomEvent('disconnected', {
         bubbles: false,
       }));
+    }
+
+    if (this.shadowRoot) {
+      this.shadowRoot.innerHTML = '';
     }
   }
 
@@ -81,7 +86,7 @@ class DahuaPlayer extends HTMLElement {
 
         .video-canvas-container {
           position: relative;
-          z-index: 100;
+          z-index: var(--dahua-player-z-index, 1);
         }
 
         .video-canvas {
@@ -97,7 +102,7 @@ class DahuaPlayer extends HTMLElement {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          z-index: 50;
+          z-index: 2;
           opacity: 1;
           transition: opacity 0.3s ease;
         }
@@ -117,7 +122,7 @@ class DahuaPlayer extends HTMLElement {
           opacity: 0;
           transition: opacity 0.3s ease;
           pointer-events: none;
-          z-index: 200;
+          z-index: 3;
         }
 
         .controls-overlay.visible {
@@ -180,7 +185,7 @@ class DahuaPlayer extends HTMLElement {
           opacity: 0;
           transition: opacity 0.3s ease;
           pointer-events: none;
-          z-index: 200;
+          z-index: 4;
         }
 
         .volume-control:hover .volume-slider,
@@ -215,7 +220,7 @@ class DahuaPlayer extends HTMLElement {
           color: white;
           font-size: 14px;
           opacity: 0.8;
-          z-index: 60;
+          z-index: 4;
         }
 
         .error {
@@ -269,10 +274,12 @@ class DahuaPlayer extends HTMLElement {
               <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
             </div>
 
-            <button class="control-button" id="ivs-btn" title="Toggle IVS">
-              <span class="icon icon-ivs"></span>
-            </button>
-
+            ${this.#isIVSEnabledInStream() 
+              ? `
+                <button class="control-button" id="ivs-btn" title="Toggle IVS">
+                  <span class="icon icon-ivs"></span>
+                </button>`.trim()
+              : ''}
             <button class="control-button" id="fullscreen-btn" title="Fullscreen">
               <span class="icon icon-fullscreen"></span>
             </button>
@@ -297,7 +304,7 @@ class DahuaPlayer extends HTMLElement {
     playPauseBtn.addEventListener('click', () => this.#togglePlay());
     volumeBtn.addEventListener('click', () => this.#toggleAudio());
     volumeSlider.addEventListener('input', (e) => this.setVolume(e.target.value));
-    ivsBtn.addEventListener('click', () => this.#toggleIVS());
+    ivsBtn?.addEventListener('click', () => this.#toggleIVS());
     fullscreenBtn.addEventListener('click', () => this.#toggleFullscreen());
 
     this.addEventListener('keydown', (e) => {
@@ -314,7 +321,7 @@ class DahuaPlayer extends HTMLElement {
           this.#toggleFullscreen();
           break;
         case 'KeyI':
-          this.#toggleIVS();
+          if (ivsBtn) this.#toggleIVS();
           break;
       }
     });
@@ -330,7 +337,8 @@ class DahuaPlayer extends HTMLElement {
 
     const channel = parseInt(this.getAttribute('channel'), 10) || 1;
     const subtype = parseInt(this.getAttribute('subtype'), 10) || 0;
-    const rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=${subtype}&proto=Private3`;
+    let rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=${subtype}`;
+    if (this.#isIVSEnabledInStream()) rtspUrl += '&proto=Private3';
     const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
 
     this.#videoCanvas = this.shadowRoot.querySelector('#video-canvas');
@@ -362,7 +370,7 @@ class DahuaPlayer extends HTMLElement {
 
       this.#player.on("Error", (j) => {
         if (j) {
-          console.log(j.errorCode);
+          console.log(j);
           const errorMessage = `Connection error: ${j.errorCode}`;
           this.#showError(errorMessage);
 
@@ -378,7 +386,6 @@ class DahuaPlayer extends HTMLElement {
       });
 
       this.#player.on('WorkerReady', () => {
-        console.log('worker is ready');
         loadingEl.style.display = 'none';
 
         this.dispatchEvent(new CustomEvent('connected', {
@@ -390,6 +397,10 @@ class DahuaPlayer extends HTMLElement {
           this.play();
         }
       });
+
+      this.#player.on('DecodeStart', () => {
+        this.#hidePreviewImage();
+      })
 
       this.#player.init(this.#videoCanvas, {}, channel);
     } catch (error) {
@@ -467,6 +478,10 @@ class DahuaPlayer extends HTMLElement {
     }
   }
 
+  #isIVSEnabledInStream() {
+    return this.hasAttribute('enable-ivs') && this.getAttribute('enable-ivs') !== 'false';
+  }
+
   setVolume(value) {
     if (!this.#player) return;
 
@@ -542,7 +557,6 @@ class DahuaPlayer extends HTMLElement {
 
     this.#isPlaying = true;
     this.#updatePlayButton();
-    this.#hidePreviewImage();
   }
 
   pause() {

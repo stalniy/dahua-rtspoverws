@@ -1429,10 +1429,8 @@ sdevInit: function() {
     )
 },
 init(canvasParent = document.body) {
-    console.log('init canvas');
     this.ivsCanvasDom = document.createElement("canvas"),
     this.ivsCanvasDom.style.cssText = "position:absolute; top:-10000px",
-    console.log(this.ivsCanvasDom, "<---");
     canvasParent.appendChild(this.ivsCanvasDom),
     this.ivsCanvasDraw = new CanvasDrawerPlugin(),
     this.ivsCanvasDraw.init(this.ivsCanvasDom),
