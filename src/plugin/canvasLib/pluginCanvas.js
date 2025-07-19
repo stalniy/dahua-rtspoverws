@@ -48,7 +48,7 @@ export function CanvasDrawerPlugin() {
         b.shape = {};
         for (const shapeClass in canvaslib)
             b.shape[shapeClass[0].toLowerCase() + shapeClass.slice(1)] = new canvaslib[shapeClass]();
-        a.each(b.shape, function(a, c) {
+        Object.values(b.shape).forEach(c => {
             c.init(b.$canvas, b.ctx, b.drawShape, f, b.coordinate)
         }),
         b.$canvas.off("contextmenu").on("contextmenu", function(a) {
@@ -64,17 +64,17 @@ export function CanvasDrawerPlugin() {
         b.$canvas.off("mousedown.move").on("mousedown.move", function(h) {
             if (f = !1,
             1 != utils.drawState) {
-                a.each(b.shape, function(a, b) {
+                Object.values(b.shape).forEach(b => {
                     utils.setUnSelected(b.data)
                 }),
                 utils.moveFlag = !1,
                 utils.resizeFlag = !1;
-                var i = [];
-                a.each(b.shape, function(a, b) {
-                    i = i.concat(b.data)
+                var shapesData = [];
+                Object.values(b.shape).forEach(b => {
+                    shapesData = shapesData.concat(b.data)
                 }),
-                i.sort(utils.compareDesc),
-                a.each(i, function(f, i) {
+                shapesData.sort(utils.compareDesc),
+                shapesData.forEach(i => {
                     if (b.tempData = b.shape[i.option.type + "Shape"].checkOnPoint(h, i),
                     b.tempData !== !1)
                         return utils.resizeFlag = !0,
@@ -112,7 +112,7 @@ export function CanvasDrawerPlugin() {
                             b.tempData.data = c.parentShapeData,
                             c.childrenShapeData = [],
                             b.tempData.data.option.zindex = utils.zindex++,
-                            a.each(l.children, function(a, e) {
+                            l.children.forEach(e => {
                                 var f = b.getShapeById(e);
                                 f.option.zindex = utils.zindex++,
                                 f.option.selected = !0,
@@ -234,7 +234,7 @@ export function CanvasDrawerPlugin() {
         // console.log('<------------------------------------------------ clear')
         var c = function(b) {
             var c = [];
-            return a.each(b, function(a, b) {
+            return Object.values(b).forEach(b => {
                 c = c.concat(b.data)
             }),
             c.sort(utils.compare),
@@ -242,7 +242,7 @@ export function CanvasDrawerPlugin() {
         }
           , e = c(b.shape);
         new FactoryGridShapeAction(e,b.$canvas),
-        a.each(e, function(a, c) {
+        e.forEach(c => {
             b.ctx.lineWidth = 0 === c.option.lineWidth ? 0 : c.option.lineWidth || g.lineWidth,
             b.shape[c.option.type + "Shape"].draw(c)
         });
@@ -252,7 +252,7 @@ export function CanvasDrawerPlugin() {
     this.getShapeById = function(c) {
         if (void 0 === c || null === c || "" === c) {
             var d = [];
-            return a.each(b.shape, function(a, b) {
+            return Object.values(b.shape).forEach(b => {
                 d = d.concat(b.data)
             }),
             deepCopy(d, [])
@@ -266,7 +266,7 @@ export function CanvasDrawerPlugin() {
     ,
     this.delShapeById = function(c) {
         if (void 0 === c || null === c || "" === c)
-            return a.each(b.shape, function(a, b) {
+            return Object.values(b.shape).forEach(b => {
                 var c = b.data;
                 c.length = 0
             }),
@@ -278,7 +278,7 @@ export function CanvasDrawerPlugin() {
                     return g.event = {},
                     e.splice(f, 1),
                     b.parents && b.parents[c] && b.disParent(c),
-                    b.parents && a.each(b.parents, function(a, b) {
+                    b.parents && Object.values(b.parents).forEach(b => {
                         if (b)
                             for (var d = 0; d < b.length; d++)
                                 if (b[d] == c) {
@@ -328,7 +328,7 @@ export function CanvasDrawerPlugin() {
         utils.shapeId = 1,
         utils.drawState = 0,
         utils.eventEnabled = !0,
-        a.each(b.shape, function(a, b) {
+        Object.values(b.shape).forEach(b => {
             b.regionNum = 999999,
             b.data = []
         })
@@ -366,7 +366,7 @@ export function CanvasDrawerPlugin() {
         return b.parents[c] ? d = {
             parentId: c,
             children: b.parents[c]
-        } : a.each(b.parents, function(a, e) {
+        } : Object.values(b.parents).forEach(e => {
             for (var f = 0; f < e.length; f++)
                 if (e[f] == c)
                     return d = {

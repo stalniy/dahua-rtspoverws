@@ -1,5 +1,4 @@
 import { utils, deepCopy } from '../util.js';
-import { jQuery as  a } from '../../jQuery.js';
 
 function d(a, b, c) {
     if (a += "",
@@ -32,21 +31,21 @@ export function MotionDetectShape() {
         i = []
     }
     ,
-    this.add = function(c, f) {
+    this.add = function(item, f) {
         if (0 === g || 0 === h)
             return !1;
         j = [],
         k = 0;
         var l = {};
-        return l.data = deepCopy(c, []),
+        return l.data = deepCopy(item, []),
         l.shapeId = utils.shapeId++,
         l.option = deepCopy(f, {}),
         b.data[0] = l,
         i = [],
-        a.each(c, function(b, c) {
+        Object.entries(item).forEach(([b, c]) => {
             i[b] = [],
             j[b] = k++,
-            a.each(c.Region, function(a, c) {
+            c.Region.forEach((c, a) => {
                 var e = d(c.toString(2), "0", g)
                   , f = e.split("");
                 i[b][a] = f
@@ -98,7 +97,7 @@ export function MotionDetectShape() {
                 if (g.row == f.row && g.column == f.column)
                     return;
                 var h = b.getDataByRect(c, e);
-                a.each(h, function(a, b) {
+                h.forEach((b) => {
                     i[l][b.row][b.column] = j
                 }),
                 f = deepCopy(g, {}),
@@ -177,8 +176,8 @@ export function MotionDetectShape() {
             case "3":
                 b.ctx.fillStyle = "#3DFF00"
             }
-            a.each(k, function(d, e) {
-                a.each(e, function(a, e) {
+            k.forEach((e, d) => {
+                e.forEach((e, a) => {
                     1 == e && b.ctx.fillRect(a * c, d * f, c, f)
                 })
             })
@@ -197,9 +196,9 @@ export function MotionDetectShape() {
     ,
     this.resizeShape = function() {}
     ,
-    this.matrixToNumber = function(c) {
-        a.each(c, function(c, d) {
-            a.each(d, function(a, d) {
+    this.matrixToNumber = function(matrix) {
+        matrix.forEach((d, c) => {
+            d.forEach((d, a) => {
                 b.data[0].data[c].Region[a] = parseInt(d.join(""), 2)
             })
         })
