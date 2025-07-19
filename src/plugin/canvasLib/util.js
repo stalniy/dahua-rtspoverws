@@ -1,7 +1,7 @@
 import { jQuery } from '../jQuery.js';
 
-export const deepMerge = (target, ...args) => {
-    return jQuery.extend(true, target, ...args);
+export const deepMerge = (target, source) => {
+    return jQuery.extend(true, target, source);
 };
 
 export function deepCopy(value, defaultValue) {

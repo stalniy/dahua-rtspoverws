@@ -213,7 +213,7 @@ export function CanvasDrawerPlugin() {
     }
     ,
     this.addShape = function(c, e, f) {
-        f = deepMerge({}, g, f),
+        f = deepMerge(deepCopy(g, {}), f),
         f.zindex = utils.zindex++,
         f.type = e;
         var h = b.shape[e + "Shape"].add(c, f);
@@ -224,7 +224,7 @@ export function CanvasDrawerPlugin() {
     }
     ,
     this.drawStart = function(c, d) {
-        var e = deepMerge({}, g, d);
+        var e = deepMerge(deepCopy(g, {}), d);
         d = Object.assign(d, e),
         b.shape[c + "Shape"].drawStart(d)
     }
@@ -391,7 +391,7 @@ export function CanvasDrawerPlugin() {
         for (const oneShape in b.shape)
             for (var e = b.shape[oneShape].data, f = 0; f < e.length; f++)
                 if (e[f].shapeId == c)
-                    return e[f].option = a.extend(!0, e[f].option, d),
+                    return e[f].option = deepMerge(e[f].option, d),
                     b.drawShape(),
                     e[f]
     }
