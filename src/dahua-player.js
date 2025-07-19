@@ -26,6 +26,7 @@ class DahuaPlayer extends HTMLElement {
   connectedCallback() {
     this.#render();
     this.#setupEventListeners();
+
   }
 
   disconnectedCallback() {
@@ -232,6 +233,7 @@ class DahuaPlayer extends HTMLElement {
           font-size: 14px;
           text-align: center;
           padding: 20px;
+          z-index: 4;
         }
 
         /* Home Assistant icon styles */
@@ -252,8 +254,6 @@ class DahuaPlayer extends HTMLElement {
       </style>
 
       <div class="video-container">
-        ${previewImage ? `<img class="preview-image" id="preview-image" src="${previewImage}" alt="Preview">` : ''}
-
         <div class="video-canvas-container">
           <canvas class="video-canvas" id="video-canvas"></canvas>
         </div>
@@ -285,6 +285,7 @@ class DahuaPlayer extends HTMLElement {
             </button>
           </div>
         </div>
+        ${previewImage ? `<img class="preview-image" id="preview-image" src="${previewImage}" alt="Preview">` : ''}
       </div>
     `;
   }
