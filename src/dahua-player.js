@@ -274,7 +274,7 @@ class DahuaPlayer extends HTMLElement {
               <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
             </div>
 
-            ${this.#isIVSEnabledInStream() 
+            ${this.#isIVSEnabledInStream()
               ? `
                 <button class="control-button" id="ivs-btn" title="Toggle IVS">
                   <span class="icon icon-ivs"></span>
@@ -462,19 +462,12 @@ class DahuaPlayer extends HTMLElement {
   #toggleAudio() {
     if (!this.#player) return;
 
-    this.#isAudioEnabled = !this.isAudioEnabled;
-    const volumeBtn = this.shadowRoot.querySelector('#volume-btn');
-    const icon = volumeBtn.querySelector('.icon');
     const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
 
-    if (this.isAudioEnabled) {
-      this.#player.setAudioVolume(parseFloat(volumeSlider.value));
-      icon.className = 'icon icon-volume';
-      volumeBtn.classList.add('active');
+    if (this.#isAudioEnabled) {
+      this.setVolume(0);
     } else {
-      this.#player.setAudioVolume(0);
-      icon.className = 'icon icon-volume-mute';
-      volumeBtn.classList.remove('active');
+      this.setVolume(parseFloat(volumeSlider.value));
     }
   }
 
@@ -565,6 +558,10 @@ class DahuaPlayer extends HTMLElement {
     this.#player.pause();
     this.#isPlaying = false;
     this.#updatePlayButton();
+
+    if (this.#isAudioEnabled) {
+      this.#toggleAudio();
+    }
   }
 
   stop() {
