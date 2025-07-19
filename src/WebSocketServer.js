@@ -1,4 +1,5 @@
 import WorkerManager from "./WorkManager.js";
+import { AsyncQueue } from "./AsyncQueue.js";
 import { debug } from './debug.js';
 
 export function WebsocketServer(wsUrl, rtspUrl, options) {
@@ -93,12 +94,19 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
     return command;
   }
   async function handleResponse(response) {
-    var b = {},
-      e = response.search("CSeq: ") + 5;
+    const cseqAttr = "CSeq:";
+    const cseqLength = 10;
+    const cseqIndex = response.indexOf(cseqAttr);
+    var b = {};
+
+    if (cseqIndex !== -1) {
+      const cseqValueStartIndex = cseqIndex + cseqAttr.length;
+      B = parseInt(response.slice(cseqValueStartIndex, cseqValueStartIndex + cseqLength)) + 1;
+    }
+
     if (
-      ((B = parseInt(response.slice(e, e + 10)) + 1),
       (b = m(response)),
-      b.ResponseCode === x.UNAUTHORIZED && "" === z)
+      b.ResponseCode === x.UNAUTHORIZED && "" === z
     )
       await authenticate(b);
     else if (b.ResponseCode === x.OK) {
@@ -559,27 +567,26 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         Q = a;
       },
       connect: function () {
-        socket ||
-          ((socket = new WebSocket(wsUrl)),
-          (socket.binaryType = "arraybuffer"),
-          socket.addEventListener("message", handleMessage, !1),
-          (socket.onopen = function () {
-            var a =
-                "OPTIONS " +
-                M +
-                " RTSP/1.0\r\nCSeq: " +
-                B +
-                (Q ? "\r\nExtraError: support" : "") +
-                "\r\n\r\n",
-              b = toBytes(a);
-            socket.send(b);
-          }),
-          (socket.onerror = function () {
-            C({
-              errorCode: 202,
-              description: "Open WebSocket Error",
-            });
-          }));
+        if (socket) return;
+
+        socket = new WebSocket(wsUrl);
+        socket.binaryType = "arraybuffer";
+        const queue = new AsyncQueue(handleMessage);
+        socket.addEventListener("message", (message) => {
+          console.log("message", queue.queue.size);
+          queue.add(message);
+          queue.process();
+        }, !1);
+        socket.onopen = () => {
+          var a = buildRTSPCommand("OPTIONS");
+          socket.send(toBytes(a));
+        };
+        socket.onerror = function () {
+          C({
+            errorCode: 202,
+            description: "Open WebSocket Error",
+          });
+        };
       },
       disconnect: function () {
         sendCommand(buildRTSPCommand("TEARDOWN", null, null)),
