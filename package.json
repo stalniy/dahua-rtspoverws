@@ -22,6 +22,7 @@
     "vite-plugin-static-copy": "^1.0.5"
   },
   "dependencies": {
-    "cash-dom": "^8.1.5"
+    "cash-dom": "^8.1.5",
+    "deepmerge": "^4.3.1"
   }
 }
