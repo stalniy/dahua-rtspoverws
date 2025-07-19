@@ -1,12 +1,10 @@
-// import { H264Session } from './h264Session.js';
-// import { H265Session } from './h265Session.js';
-// import { IvsSession } from './ivsSession.js';
-// import { MjpegSession } from './mjpegSession.js';
 import { videoEncoding, debug, decodeMode } from './public1.js';
 
 debug.log("video worker loaded")
 sendMessage("WorkerReady");
+
 addEventListener("message", receiveMessage, false);
+
 var videoRtpSessionsArray = [],
     sdpInfo = null,
     rtpSession = null,
@@ -23,20 +21,17 @@ var videoRtpSessionsArray = [],
     channelId = null,
     dropout = 1;
 
-let lockPromise = null;
 function receiveMessage(a) {
-    if (lockPromise) {
-        return lockPromise.then(() => receiveMessage(a));
-    }
     var b = a.data;
     switch (channelId = a.data.channelId, b.type) {
         case "sdpInfo":
             sdpInfo = b.data, framerate = 0;
-            lockPromise = setVideoRtpSession(sdpInfo);
-            lockPromise.then(() => { lockPromise = null; });
+            setVideoRtpSession(sdpInfo).then(() => {
+                sendMessage("sdpInfoProcessed");
+            });
             break;
         case "MediaData":
-            if (isStepPlay === !0) {
+            if (isStepPlay) {
                 buffering(b);
                 break
             }
@@ -53,7 +48,7 @@ function receiveMessage(a) {
 
 async function setVideoRtpSession(a) {
     videoRtpSessionsArray = [];
-    isStepPlay = !1;
+    isStepPlay = false;
 
     for (var b = 0; b < a.sdpInfo.length; b++) {
         rtpSession = null;

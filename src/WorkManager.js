@@ -106,7 +106,7 @@ export default function WorkerManager() {
                         type: "stepPlay",
                         data: "findIFrame"
                     };
-                    l.postMessage(h),
+                    videoProcessWorker.postMessage(h),
                     p.startRendering(),
                     Cb = !1
                 }
@@ -228,8 +228,8 @@ export default function WorkerManager() {
     function k(a, b) {
         null !== q && q.setBufferingFlag(a, b)
     }
-    var l = null
-      , m = null
+    var videoProcessWorker = null
+      , audioProcessWorker = null
       , n = null
       , o = null
       , p = null
@@ -345,10 +345,10 @@ export default function WorkerManager() {
             eb = videoConfig,
             o.channel = channelNumber;
             window.navigator.userAgent;
-            l = new VideoWorker({ name: 'video' }),
-            m = new AudioWorker({ name: 'audio' }),
-            l.onmessage = d,
-            m.onmessage = e;
+            videoProcessWorker = new VideoWorker({ name: 'video' }),
+            audioProcessWorker = new AudioWorker({ name: 'audio' }),
+            videoProcessWorker.onmessage = d,
+            audioProcessWorker.onmessage = e;
             var bufferSize = audioTalkEnabled === !0 ? 500 : 15;
             p = new StreamDrawer(Ab,this,S,bufferSize),
             H = IvsDraw(),
@@ -356,8 +356,8 @@ export default function WorkerManager() {
             yb = document.getElementById("count-fps"),
             xb = document.getElementById("span-fps")
         },
-        sendSdpInfo: function(a, b, c) {
-            var d = {
+        async sendSdpInfo(a, b, c) {
+            var sdpInfoMessage = {
                 type: "sdpInfo",
                 data: {
                     sdpInfo: a,
@@ -368,10 +368,35 @@ export default function WorkerManager() {
                     checkDelay: Q
                 }
             };
-            if (N = c,
-            l.postMessage(d),
-            m.postMessage(d),
-            N)
+
+            await Promise.all([
+                new Promise((resolve) => {
+                    const listener = (event) => {
+                        if (event.data.type === "sdpInfoProcessed") {
+                            debug.log("videoProcessWorker.sdpInfoProcessed");
+                            videoProcessWorker.removeEventListener("message", listener);
+                            resolve();
+                        }
+                    };
+                    videoProcessWorker.addEventListener("message", listener);
+                    videoProcessWorker.postMessage(sdpInfoMessage);
+                }),
+                new Promise((resolve) => {
+                    const listener = (event) => {
+                        if (event.data.type === "sdpInfoProcessed") {
+                            debug.log("audioProcessWorker.sdpInfoProcessed");
+                            audioProcessWorker.removeEventListener("message", listener);
+                            resolve();
+                        }
+                    };
+                    audioProcessWorker.addEventListener("message", listener);
+                    audioProcessWorker.postMessage(sdpInfoMessage);
+                }),
+            ]);
+            debug.log("sdpInfoProcessed");
+
+            N = c;
+            if (N)
                 try {
                     window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext,
                     n = new Worker("./media/ump/Workers/audioTalkWorker.js"),
@@ -380,12 +405,13 @@ export default function WorkerManager() {
                     r.init(),
                     r.setSendAudioTalkBufferCallback(g));
                     var e = r.initAudioOut();
-                    n.postMessage(d),
-                    d = {
+                    n.postMessage(sdpInfoMessage),
+                    sdpInfoMessage = {
                         type: "sampleRate",
                         data: e
                     },
-                    n.postMessage(d)
+                    // TODO: should wait for response here as well
+                    n.postMessage(sdpInfoMessage)
                 } catch (h) {
                     return N = !1,
                     void debug.error("Web Audio API is not supported in this web browser! : " + h)
@@ -593,8 +619,8 @@ export default function WorkerManager() {
                         void D(Hb[N.encode_type])
                 } else
                     Db = N.encode_type;
-                l && (M.info = N,
-                l.postMessage(M))
+                videoProcessWorker && (M.info = N,
+                videoProcessWorker.postMessage(M))
             } else if (240 == f) {
                 if (d(),
                 null != Fb) {
@@ -617,13 +643,13 @@ export default function WorkerManager() {
                 case "28":
                 case "29":
                 case "30":
-                    m && (M.info = N,
-                    m.postMessage(M))
+                    audioProcessWorker && (M.info = N,
+                    audioProcessWorker.postMessage(M))
                 }
             } else
                 241 == f ? (e(),
-                l && (M.info = N,
-                l.postMessage(M))) : debug.log("mediaType:   " + f)
+                videoProcessWorker && (M.info = N,
+                videoProcessWorker.postMessage(M))) : debug.log("mediaType:   " + f)
         },
         setCallback(eventName, callback) {
             switch (eventName) {
@@ -765,15 +791,15 @@ export default function WorkerManager() {
             var a = {
                 type: "initStartTime"
             };
-            l.postMessage(a),
+            videoProcessWorker.postMessage(a),
             p.stopRendering(),
             p.startRendering()
         },
         terminate: function() {
-            "backup" !== U && (l && (l.terminate(),
-            l = null),
-            m && (m.terminate(),
-            m = null)),
+            "backup" !== U && (videoProcessWorker && (videoProcessWorker.terminate(),
+            videoProcessWorker = null),
+            audioProcessWorker && (audioProcessWorker.terminate(),
+            audioProcessWorker = null)),
             n && n.terminate(),
             r && (r.terminate(),
             r = null),
@@ -785,17 +811,17 @@ export default function WorkerManager() {
             O = !0
         },
         postRtspOver: function() {
-            l.postMessage({
+            videoProcessWorker.postMessage({
                 type: "end"
             })
         },
         pause: function() {
             X && X.pause(),
-            l && p.pause()
+            videoProcessWorker && p.pause()
         },
         play: function() {
             X && X.play(),
-            l && p.play()
+            videoProcessWorker && p.play()
         },
         setLessRate: function(lessRateEnabled) {
             Gb = lessRateEnabled

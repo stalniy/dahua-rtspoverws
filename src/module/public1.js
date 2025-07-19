@@ -1,4 +1,4 @@
-export { debug } from '../debug.js';
+import { debug } from '../debug.js';
 
 // @type {canvas|video}
 export let decodeMode = "canvas";
@@ -255,4 +255,4 @@ export function VideoBufferList() {
 }
 
 
-export { Script, Program, Shader, Texture, base64ArrayBuffer };
+export { Script, Program, Shader, Texture, base64ArrayBuffer, debug };

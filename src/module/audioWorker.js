@@ -6,7 +6,7 @@ import { G726Session } from './g726Session.js';
 import { AACSession } from './aacSession.js';
 
 debug.log("audio worker loaded")
-addEventListener("message", receiveMessage, !1);
+addEventListener("message", receiveMessage, false);
 
 var audioRtpSessionsArray = []
   , sdpInfo = null
@@ -19,7 +19,9 @@ function receiveMessage(a) {
     case "sdpInfo":
         sdpInfo = b.data.sdpInfo;
         var c = b.data.aacCodecInfo;
-        setAudioRtpSession(sdpInfo, c);
+        setAudioRtpSession(sdpInfo, c).then(() => {
+            postMessage({ type: "sdpInfoProcessed" });
+        });
         break;
     case "MediaData":
         var d = b.data.rtspInterleave[1];
@@ -31,9 +33,9 @@ function receiveMessage(a) {
         }
     }
 }
-function setAudioRtpSession(a, b) {
+async function setAudioRtpSession(a, b) {
     for (var c = a, d = 0; d < a.length; d++)
-        if (-1 === c[d].trackID.search("trackID=t")) {
+        if (-1 === c[d].trackID.indexOf("trackID=t")) {
             switch (rtpSession = null,
             c[d].codecName) {
             case "G.711A":
@@ -50,14 +52,14 @@ function setAudioRtpSession(a, b) {
                 rtpSession = new G726Session(e);
                 break;
             case "mpeg4-generic":
-                rtpSession = new AACSession,
-                debug.log("aacCodecInfo:  " + JSON.stringify(b)),
+                AACSession = await import('./aacSession.js').then(m => m.AACSession);
+                rtpSession = new AACSession();
+                debug.log("aacCodecInfo: ", b);
                 rtpSession.setCodecInfo(b)
             }
             var f = c[d].RtpInterlevedID;
-            if (audioRtpSessionsArray[f] = rtpSession,
-            null != rtpSession)
-                return
+            audioRtpSessionsArray[f] = rtpSession;
+            if (rtpSession) return;
         }
 }
 function sendMessage(a, b) {

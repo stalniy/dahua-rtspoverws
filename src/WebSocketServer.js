@@ -1,4 +1,5 @@
 import WorkerManager from "./WorkManager.js";
+import { debug } from './debug.js';
 
 export function WebsocketServer(wsUrl, rtspUrl, options) {
   function c() {}
@@ -31,7 +32,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
           "\r\n";
         break;
       case "SETUP":
-        console.log("trackID: " + trackId),
+        debug.log("trackID: " + trackId),
           (command =
             method +
             " " +
@@ -169,7 +170,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
               (i.ClockFreq = D.Sessions[g].ClockFreq),
               (i.Port = parseInt(D.Sessions[g].Port)),
               A.push(i))
-            : console.log(
+            : debug.log(
                 "Unknown codec type:",
                 D.Sessions[g].CodecMime,
                 D.Sessions[g].ControlURL
@@ -178,16 +179,18 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         return (F = 0), (E = "Setup"), buildRTSPCommand("SETUP", F);
       }
       if ("Setup" === E) {
-        if (((G = b.SessionID), F < A.length))
-          return (
-            (A[F].RtpInterlevedID = b.RtpInterlevedID),
-            (A[F].RtcpInterlevedID = b.RtcpInterlevedID),
-            (F += 1),
-            F !== A.length
-              ? buildRTSPCommand("SETUP", A[F].trackID.split("=")[1] - 0)
-              : (workerManager.sendSdpInfo(A, L, I), (E = "Play"), buildRTSPCommand("PLAY", null))
-          );
-        console.log("Unknown setup SDP index");
+        if (((G = b.SessionID), F < A.length)) {
+          A[F].RtpInterlevedID = b.RtpInterlevedID;
+          A[F].RtcpInterlevedID = b.RtcpInterlevedID;
+          F += 1;
+          if (F !== A.length) {
+            return buildRTSPCommand("SETUP", A[F].trackID.split("=")[1] - 0);
+          }
+          await workerManager.sendSdpInfo(A, L, I);
+          E = "Play";
+          return buildRTSPCommand("PLAY", null);
+        }
+        debug.log("Unknown setup SDP index");
       } else if ("Play" === E) {
         (G = b.SessionID),
           clearInterval(J),
@@ -195,7 +198,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
             return sendCommand(buildRTSPCommand("GET_PARAMETER", null, null));
           }, y));
         E = "Playing";
-      } else "Playing" === E || console.log("unknown rtsp state:" + E);
+      } else "Playing" === E || debug.log("unknown rtsp state:" + E);
     } else if (b.ResponseCode === x.NOTSERVICE) {
       if ("Setup" === E && -1 !== A[F].trackID.search("trackID=t"))
         return (
@@ -229,7 +232,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
             errorCode: "457",
             description: "Invalid range",
           }),
-        void console.log("RTP disconnection detect!!!")
+        void debug.log("RTP disconnection detect!!!")
       );
   }
   async function authenticate(a) {
@@ -247,12 +250,12 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
       Uri: M,
     });
 
-    console.log(e, "<---");
+    debug.log(e, "<---");
     const credentials = await options?.authenticate(e);
-    console.log(credentials, "<---");
+    debug.log(credentials, "<---");
 
       // (f = digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
-      // console.log(digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
+      // debug.log(digestAuth(b, c, e.Uri, e.Realm, e.Nonce, e.Method));
       (z =
         'Authorization: Digest username="' + credentials.username + '", realm="' + e.Realm + '",'),
       (z +=
@@ -270,7 +273,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         void 0 != command && socket.send(
           toBytes(command)
         );
-      } else console.log("websocket not connected");
+      } else debug.log("websocket not connected");
   }
   function toBytes(text) {
     return new TextEncoder().encode(text);
@@ -614,7 +617,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
             workerManager.controlAudio(a.command, a.data);
             break;
           default:
-            console.log("Unknown command: " + a.command);
+            debug.log("Unknown command: " + a.command);
         }
         "" != b && sendCommand(b);
       },
