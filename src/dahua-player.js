@@ -387,24 +387,21 @@ class DahuaPlayer extends HTMLElement {
         this.#ivsCanvasDrawer?.receiveDataFromStream(data);
       });
 
-      this.#player.on('WorkerReady', () => {
+      this.#player.on('DecodeStart', () => {
+        this.#hidePreviewImage();
+      })
+
+      this.#player.init(this.#videoCanvas, {}, channel).then(() => {
         loadingEl.style.display = 'none';
 
         this.dispatchEvent(new CustomEvent('connected', {
           detail: { cameraIp, channel }
         }));
 
-        // Auto-play if autoplay attribute is set
         if (this.hasAttribute('autoplay')) {
           this.play();
         }
-      });
-
-      this.#player.on('DecodeStart', () => {
-        this.#hidePreviewImage();
       })
-
-      this.#player.init(this.#videoCanvas, {}, channel);
     } catch (error) {
       debug.error('Failed to initialize player:', error);
       this.#showError('Failed to initialize player. Please check your configuration.');

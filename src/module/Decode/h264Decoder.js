@@ -1,4 +1,64 @@
 import { debug } from '../../debug.js';
-import { Module } from './jsFFMPEG.js';
 
-export function H264Decoder(){function a(){debug.log("Construct H264 Codec"),b=Module.cwrap("init_jsFFmpeg","void",[]),c=Module.cwrap("context_jsFFmpeg","number",["number"]),d=Module.cwrap("decode_video_jsFFmpeg","number",["number","array","number","number"]),e=Module.cwrap("get_width","number",["number"]),f=Module.cwrap("get_height","number",["number"]),g=Module.cwrap("close_jsFFmpeg","number",["number"]),b(),a.prototype.init(),a.prototype.setIsFirstFrame(!1)}var b=null,c=null,d=null,e=null,f=null,g=null,h=null,i=null,j=264,k=!1;return a.prototype={init:function(){debug.log("H264 Decoder init"),null!==h&&(g(h),h=null),h=c(j)},setOutputSize:function(a){var b=1.5*a,c=Module._malloc(b);i=new Uint8Array(Module.HEAPU8.buffer,c,b)},decode:function(b){var c=null,g=null,j=null,k=null,l=103==b[4]?"I":"P";c=Date.now(),d(h,b,b.length,i.byteOffset),g=Date.now()-c;var m=e(h),n=f(h);if(!a.prototype.isFirstFrame())return a.prototype.setIsFirstFrame(!0),j={firstFrame:!0};if(m>0&&n>0){var o=new Uint8Array(i);return j={data:o,bufferIdx:k,width:m,height:n,codecType:"h264",decodingTime:g,frameType:l}}},setIsFirstFrame:function(a){k=a},isFirstFrame:function(){return k}},new a}
+export function H264Decoder(Module) {
+  function a() {
+      k = Module._OpenDecoder(0, 0, 0),
+      a.prototype.setIsFirstFrame(!1)
+  }
+  var b, c, d, e, f, g, h, i, j, k = null, l = new Uint8Array, m = !1;
+  return a.prototype = {
+      init: function() {
+          debug.log("H264 Decoder init")
+      },
+      setOutputSize: function(a) {
+          i != 2 * a && (i = 2 * a,
+          j = Module._malloc(i),
+          l = new Uint8Array(Module.HEAPU8.buffer,j,i))
+      },
+      decode: function(j, m) {
+          if (b = Date.now(),
+          c = new Uint8Array(j),
+          l.set(c),
+          d = Module._FrameAlloc(),
+          Module._DecodeFrame(k, l.byteOffset, j.byteLength, i, d),
+          e = Date.now() - b,
+          g = Module._getYLength(d),
+          f = Module._getHeight(d),
+          !a.prototype.isFirstFrame())
+              return a.prototype.setIsFirstFrame(!0),
+              {
+                  firstFrame: !0
+              };
+          if (g > 0 && f > 0) {
+              b = Date.now();
+              var n = new Uint8Array(l);
+              return h = {
+                  data: n,
+                  option: {
+                      ylen: g,
+                      height: f,
+                      beforeDecoding: b
+                  },
+                  width: g,
+                  height: f,
+                  codecType: "h264",
+                  decodingTime: e,
+                  frameType: m
+              },
+              Module._FrameFree(d),
+              h
+          }
+      },
+      setIsFirstFrame: function(a) {
+          m = a
+      },
+      isFirstFrame: function() {
+          return m
+      },
+      free: function() {
+          Module._free(j),
+          j = null
+      }
+  },
+  new a
+}

@@ -20,6 +20,9 @@ export class AsyncQueue {
       }
     } finally {
       this.isProcessing = false;
+      if (!this.queue.isEmpty()) {
+        setImmediate(() => this.process());
+      }
     }
   }
 }

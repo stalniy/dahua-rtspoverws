@@ -8,6 +8,8 @@ var audioRtpSessionsArray = []
   , rtpSession = null
   , isBackupCommand = !1;
 
+postMessage({ type: "WorkerReady" });
+
 function receiveMessage(a) {
     var b = a.data;
     switch (b.type) {
@@ -15,6 +17,7 @@ function receiveMessage(a) {
         sdpInfo = b.data.sdpInfo;
         var c = b.data.aacCodecInfo;
         setAudioRtpSession(sdpInfo, c).then(() => {
+            debug.log("audio sdpInfo processed");
             postMessage({ type: "sdpInfoProcessed" });
         });
         break;

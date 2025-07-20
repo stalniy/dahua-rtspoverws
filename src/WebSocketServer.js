@@ -1,4 +1,4 @@
-import WorkerManager from "./WorkManager.js";
+import WorkerManager from "./WorkerManager.js";
 import { AsyncQueue } from "./AsyncQueue.js";
 import { debug } from './debug.js';
 
@@ -107,9 +107,9 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
     if (
       (b = m(response)),
       b.ResponseCode === x.UNAUTHORIZED && "" === z
-    )
+    ) {
       await authenticate(b);
-    else if (b.ResponseCode === x.OK) {
+    } else if (b.ResponseCode === x.OK) {
       if ("Options" === E) return (E = "Describe"), buildRTSPCommand("DESCRIBE", null, null);
       if ("Describe" === E) {
         (I = !1),
@@ -560,8 +560,8 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
     Q = !1;
   return (
     (c.prototype = {
-      init: function (canvasElement, videoConfig, channelNumber, audioTalkEnabled) {
-        workerManager.init(canvasElement, videoConfig, channelNumber, audioTalkEnabled);
+      init(canvasElement, videoConfig, channelNumber, audioTalkEnabled) {
+        return workerManager.init(canvasElement, videoConfig, channelNumber, audioTalkEnabled);
       },
       setStoreEncrypt: function (a) {
         Q = a;

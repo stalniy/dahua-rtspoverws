@@ -1,34 +1,40 @@
 import { debug } from '../../debug.js';
-export function MJPEGDecoder() {
-  function a() {
-      debug.log("MJPEG Decoder")
+
+export class MJPEGDecoder {
+  #isFirstIFrame = false;
+  #width = 0;
+  #height = 0;
+
+  constructor() {
+    debug.log("MJPEG Decoder");
   }
-  var b, c;
-  var isFirstIFrame = false;
-  return a.prototype = {
-      setIsFirstFrame: function(a) {
-          isFirstIFrame = a
-      },
-      isFirstFrame: function() {
-          return isFirstIFrame
-      },
-      setResolution: function(a, d) {
-          b = a, c = d
-      },
-      decode: function(d) {
-          if (!a.prototype.isFirstFrame()) {
-              a.prototype.setIsFirstFrame(!0);
-              var e = {
-                  firstFrame: !0
-              };
-              return e
-          }
-          return {
-              data: d,
-              width: b,
-              height: c,
-              codecType: "mjpeg"
-          }
-      }
-  }, new a
+
+  setIsFirstFrame(isFirst) {
+    this.#isFirstIFrame = isFirst;
+  }
+
+  isFirstFrame() {
+    return this.#isFirstIFrame;
+  }
+
+  setResolution(width, height) {
+    this.#width = width;
+    this.#height = height;
+  }
+
+  decode(data) {
+    if (!this.isFirstFrame()) {
+      this.setIsFirstFrame(true);
+      return {
+        firstFrame: true
+      };
+    }
+
+    return {
+      data: data,
+      width: this.#width,
+      height: this.#height,
+      codecType: "mjpeg"
+    };
+  }
 }
