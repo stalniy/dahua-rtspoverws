@@ -9,7 +9,7 @@ export function AudioPlayerAAC() {
         c
     }
     function b() {
-        n = /Apple Computer/.test(navigator.vendor) && /Safari/.test(navigator.userAgent) ? "audio/x-aac" : "audio/aac",
+        n = "audio/aac",
         p = document.createElement("audio"),
         document.body.appendChild(p),
         p.addEventListener("error", d)

@@ -168,7 +168,7 @@ export default function WorkerManager() {
           "AAC" === b.codec ? "edge" === I || "firefox" === I ? (q = null,
           null !== A && A({
               errorCode: 201
-          })) : q = new AudioPlayerAAC : "safari" === I ? (q = null,
+          })) : q = new AudioPlayerAAC : "safari-old" === I ? (q = null,
           null !== A && A({
               errorCode: 201
           })) : (q = new AudioPlayerGxx,
