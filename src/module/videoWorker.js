@@ -1,5 +1,7 @@
 import { videoEncoding, debug, decodeMode } from './public1.js';
-import { loadFFMPEG } from './Decode/ffmpeg.js';
+import { default as loadFFMPEG } from './Decode/ffmpeg-core.js';
+
+// import { loadFFMPEG } from './Decode/ffmpeg.js';
 
 var videoRtpSessionsArray = []
   , sdpInfo = null
@@ -122,7 +124,7 @@ function BufferFullCallback() {
 function RtpReturnCallback(a) {
     var b = null
       , c = null;
-    console.log("RtpReturnCallback", a);
+
     if (null === a || "undefined" == typeof a)
         return b = null,
         void (c = null);

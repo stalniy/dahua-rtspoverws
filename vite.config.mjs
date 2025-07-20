@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite';
-import {viteStaticCopy} from 'vite-plugin-static-copy';
 import { resolve } from 'path';
 
 export default defineConfig(({ command, mode }) => {
@@ -25,12 +24,14 @@ export default defineConfig(({ command, mode }) => {
 
       // Only use lib config for production builds
       ...(isProduction && {
-        lib: {
-          entry: resolve(__dirname, 'src/dahua-player.js'),
-          fileName: 'dahua',
-          name: 'Dahua',
-          formats: ['es']
-        }
+        rollupOptions: {
+          input: {
+            dahua: resolve(__dirname, 'src/dahua-player.js'),
+          },
+          output: {
+            format: 'es',
+          }
+        },
       }),
     },
     define: {
@@ -41,15 +42,5 @@ export default defineConfig(({ command, mode }) => {
     worker: {
       format: 'es'
     },
-    plugins: [
-      viteStaticCopy({
-        targets: [
-          {
-            src: resolve(__dirname, 'src/module/Decode/ffmpegasm.js.mem'),
-            dest: '.',
-          },
-        ],
-      }),
-    ]
   };
 });

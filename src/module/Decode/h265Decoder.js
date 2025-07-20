@@ -16,16 +16,18 @@ export function H265Decoder(Module) {
             l = new Uint8Array(Module.HEAPU8.buffer,j,i))
         },
         decode: function(j, m) {
-            if (b = Date.now(),
+            b = Date.now(),
             c = new Uint8Array(j),
             l.set(c),
-            d = Module._FrameAlloc(),
-            Module._DecodeFrame(k, l.byteOffset, j.byteLength, i, d),
-            e = Date.now() - b,
-            g = Module._getYLength(d),
-            f = Module._getHeight(d),
-            !a.prototype.isFirstFrame())
-                return a.prototype.setIsFirstFrame(!0),
+            d = Module._FrameAlloc();
+            const result = Module._DecodeFrame(k, l.byteOffset, j.byteLength, i, d);
+            debug.log('decode result', result);
+            e = Date.now() - b;
+            g = Module._getYLength(d);
+            f = Module._getHeight(d);
+
+            if (!a.prototype.isFirstFrame())
+                return Module._FrameFree(d),a.prototype.setIsFirstFrame(!0),
                 {
                     firstFrame: !0
                 };
@@ -57,7 +59,7 @@ export function H265Decoder(Module) {
             return m
         },
         free: function() {
-            Module._free(j),
+            Module._free(j);
             j = null
         }
     },

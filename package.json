@@ -18,8 +18,7 @@
   "author": "Naveen Sakthivel",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^5.3.1",
-    "vite-plugin-static-copy": "^1.0.5"
+    "vite": "^5.3.1"
   },
   "dependencies": {
     "cash-dom": "^8.1.5",
