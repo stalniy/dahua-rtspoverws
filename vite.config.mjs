@@ -30,6 +30,7 @@ export default defineConfig(({ command, mode }) => {
           },
           output: {
             format: 'es',
+            entryFileNames: '[name].js',
           }
         },
       }),
