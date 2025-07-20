@@ -372,7 +372,6 @@ class DahuaPlayer extends HTMLElement {
 
       this.#player.on("Error", (j) => {
         if (j) {
-          console.log(j);
           const errorMessage = `Connection error: ${j.errorCode}`;
           this.#showError(errorMessage);
 
