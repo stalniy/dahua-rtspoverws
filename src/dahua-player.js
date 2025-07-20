@@ -13,6 +13,7 @@ class DahuaPlayer extends HTMLElement {
   #isIVSEnabled = false;
   #isAudioEnabled = false;
   #isPlaying = false;
+  #videoElement = null;
 
   constructor() {
     super();
@@ -252,10 +253,15 @@ class DahuaPlayer extends HTMLElement {
         .icon-ivs::before { content: "🎯"; }
         .icon-fullscreen::before { content: "⛶"; }
         .icon-fullscreen-exit::before { content: "⛶"; }
+
+        .video-element {
+          display: none;
+        }
       </style>
 
       <div class="video-container">
         <div class="video-canvas-container">
+          <video id="video-element" class="video-element" playsinline muted></video>
           <canvas class="video-canvas" id="video-canvas"></canvas>
         </div>
 
@@ -516,13 +522,8 @@ class DahuaPlayer extends HTMLElement {
   }
 
   #toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      this.requestFullscreen();
-      this.#isFullscreen = true;
-    } else {
-      document.exitFullscreen();
-      this.#isFullscreen = false;
-    }
+    this.#videoElement ??= this.shadowRoot.querySelector('#video-element');
+    this.#isFullscreen = this.requestFullscreen ? this.#toggleElementFullscreen() : this.#toggleVideoFullscreen();
 
     const fullscreenBtn = this.shadowRoot.querySelector('#fullscreen-btn');
     const icon = fullscreenBtn.querySelector('.icon');
@@ -534,6 +535,51 @@ class DahuaPlayer extends HTMLElement {
       icon.className = 'icon icon-fullscreen';
       fullscreenBtn.title = 'Fullscreen';
     }
+  }
+
+  /**
+   * Safari on iOS doesn't support requestFullscreen,
+   * so we use a video element to capture the stream and enter fullscreen
+   */
+  #toggleVideoFullscreen() {
+    if (this.#videoElement.webkitPresentationMode === 'fullscreen') {
+      this.#videoElement.pause();
+      this.#videoElement.srcObject = null;
+      this.#videoElement.webkitExitFullscreen();
+      return false;
+    }
+
+    const video = this.#videoElement;
+    video.style.display = 'block';
+    video.srcObject = this.#videoCanvas.captureStream(20);
+
+    this.setVolume(0.8);
+
+    video.muted = true;
+    video.playsInline = true;
+    video.play().then(() => {
+      video.webkitEnterFullscreen();
+      video.addEventListener('webkitendfullscreen', () => {
+        video.pause();
+        video.style.display = 'none';
+      }, { capture: true, once: true });
+    });
+
+    // document.body.addEventListener('click', () => {
+    //   video.webkitEnterFullscreen();
+    // }, { capture: true, once: true });
+
+    return true;
+  }
+
+  #toggleElementFullscreen() {
+    if (!document.fullscreenElement) {
+      this.requestFullscreen();
+      return true;
+    }
+
+    document.exitFullscreen();
+    return false;
   }
 
   play() {
