@@ -26,16 +26,15 @@ export class PlayerControl {
     this.el = null;
   }
 
-  init(canvasElement, videoConfig, channelNumber) {
+  async init(canvasElement, videoElement, channelNumber) {
     this.el = canvasElement;
     this.ws = new WebsocketServer(this.wsURL, this.rtspURL, {
       authenticate: this.authenticate
     });
     this.ws.setLiveMode(this.decodeMode);
-    this.ws.init(canvasElement, videoConfig, channelNumber);
 
     this.ws.setStoreEncrypt(this.supportStoreEncrypt);
-    // this.ws.setUserInfo(this.username, this.password);
+    await this.ws.init(canvasElement, videoElement, channelNumber);
     for (var eventType in this.events) this.ws.setCallback(eventType, this.events[eventType]);
     this.events = null;
   }

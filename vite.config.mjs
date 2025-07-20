@@ -4,7 +4,6 @@ import { resolve } from 'path';
 export default defineConfig(({ command, mode }) => {
   const isProduction = command === 'build';
   const env = loadEnv(mode, process.cwd(), '');
-  console.log(env.DEBUG, "debug");
 
   return {
     root: 'src',
@@ -16,40 +15,32 @@ export default defineConfig(({ command, mode }) => {
         host: '0.0.0.0'
       }
     }),
-
     build: {
       target: "esnext",
-      minify: false,
+      minify: true,
       outDir: '../dist',
       sourcemap: true,
       emptyOutDir: true,
 
       // Only use lib config for production builds
       ...(isProduction && {
-        lib: {
-          entry: resolve(__dirname, 'src/dahua-player.js'),
-          fileName: 'dahua',
-          name: 'Dahua',
-          formats: ['es']
-        }
-      })
+        rollupOptions: {
+          input: {
+            dahua: resolve(__dirname, 'src/dahua-player.js'),
+          },
+          output: {
+            format: 'es',
+          }
+        },
+      }),
     },
     define: {
       'process.env.CAMERA_IP': JSON.stringify(env.CAMERA_IP),
-      'process.env.DEBUG': env.DEBUG === 'true'
+      'process.env.DEBUG': env.DEBUG === 'true',
+      'process.env.FFMPEG_ENV': JSON.stringify('webworker')
     },
     worker: {
       format: 'es'
-    }
-    // plugins: [
-    //   viteStaticCopy({
-    //     targets: [
-    //     {
-    //       src: resolve(__dirname, 'src/module') + '/[!.]*',
-    //       dest: './module',
-    //     },
-    //     ],
-    //   }),
-    // ]
+    },
   };
 });
