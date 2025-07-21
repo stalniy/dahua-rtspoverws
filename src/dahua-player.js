@@ -33,7 +33,7 @@ class DahuaPlayer extends HTMLElement {
   disconnectedCallback() {
     clearTimeout(this.#playerInitializerId);
     if (this.#player) {
-      this.#disconnectPlayer();
+      this.destroyPlayer();
       this.dispatchEvent(new CustomEvent('disconnected', {
         bubbles: false,
       }));
@@ -48,13 +48,13 @@ class DahuaPlayer extends HTMLElement {
     if (oldValue !== newValue) {
       clearTimeout(this.#playerInitializerId);
       this.#playerInitializerId = setTimeout(() => {
-        this.#disconnectPlayer();
+        this.destroyPlayer();
         this.#initializePlayer();
       }, 100);
     }
   }
 
-  #disconnectPlayer() {
+  destroyPlayer() {
     if (this.#player) {
       this.#player.close();
       this.#ivsCanvasDrawer?.close();
@@ -561,6 +561,7 @@ class DahuaPlayer extends HTMLElement {
       video.webkitEnterFullscreen();
       video.addEventListener('webkitendfullscreen', () => {
         video.pause();
+        video.srcObject = null;
         video.style.display = 'none';
       }, { capture: true, once: true });
     });

@@ -1,7 +1,7 @@
 
 var createFFmpegCore = (() => {
   var _scriptDir = import.meta.url;
-
+  
   return (
 function(createFFmpegCore = {})  {
 
@@ -27,7 +27,7 @@ Module['ready'] = new Promise((resolve, reject) => {
   readyPromiseResolve = resolve;
   readyPromiseReject = reject;
 });
-["_abort","_malloc","_free","_OpenDecoder","_FrameAlloc","_FrameFree","_DecodeFrame","_CloseDecoder","_getWidth","_getHeight","_getYLength","_getULength","_getVLength","_RegisterAll","_fflush","onRuntimeInitialized"].forEach((prop) => {
+["_abort","_malloc","_free","_OpenDecoder","_FrameAlloc","_FrameFree","_DecodeFrame","_CloseDecoder","_getWidth","_getHeight","_getYLength","_getULength","_getVLength","_fflush","onRuntimeInitialized"].forEach((prop) => {
   if (!Object.getOwnPropertyDescriptor(Module['ready'], prop)) {
     Object.defineProperty(Module['ready'], prop, {
       get: () => abort('You are getting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
@@ -137,10 +137,42 @@ function reset() {
   Module["timeout"] = -1;
 }
 
+/**
+ * In multithread version of ffmpeg.wasm, the bootstrap process is like:
+ * 1. Execute ffmpeg-core.js
+ * 2. ffmpeg-core.js spawns workers by calling `new Worker("ffmpeg-core.worker.js")`
+ * 3. ffmpeg-core.worker.js imports ffmpeg-core.js
+ * 4. ffmpeg-core.js imports ffmpeg-core.wasm
+ *
+ * It is a straightforward process when all files are in the same location.
+ * But when files are in different location (or Blob URL), #4 fails because
+ * there is no way to pass custom ffmpeg-core.wasm URL to ffmpeg-core.worker.js
+ * when it imports ffmpeg-core.js in #3.
+ *
+ * To fix this issue, a hack here is leveraging mainScriptUrlOrBlob variable by
+ * adding wasmURL and workerURL in base64 format as query string. ex:
+ *
+ *   http://example.com/ffmpeg-core.js#{btoa(JSON.stringify({"wasmURL": "...", "workerURL": "..."}))}
+ *
+ * Thus, we can successfully extract custom URLs using _locateFile funciton.
+ */
+function _locateFile(path, prefix) {
+  const mainScriptUrlOrBlob = Module["mainScriptUrlOrBlob"];
+  if (mainScriptUrlOrBlob) {
+    const { wasmURL, workerURL } = JSON.parse(
+      atob(mainScriptUrlOrBlob.slice(mainScriptUrlOrBlob.lastIndexOf("#") + 1))
+    );
+    if (path.endsWith(".wasm")) return wasmURL;
+    // if (path.endsWith(".worker.js")) return workerURL;
+  }
+  return prefix + path;
+}
+
 Module["stringToPtr"] = stringToPtr;
 Module["stringsToPtr"] = stringsToPtr;
 Module["print"] = print;
 Module["printErr"] = printErr;
+Module["locateFile"] = _locateFile;
 
 // Module["exec"] = exec;
 // Module["ffprobe"] = ffprobe;
@@ -565,7 +597,7 @@ function initRuntime() {
 
   checkStackCookie();
 
-
+  
 if (!Module["noFSInit"] && !FS.init.initialized)
   FS.init();
 FS.ignorePermissions = false;
@@ -1073,7 +1105,7 @@ function dbg(text) {
     }
 
   var wasmTableMirror = [];
-
+  
   function getWasmTableEntry(funcPtr) {
       var func = wasmTableMirror[funcPtr];
       if (!func) {
@@ -1088,10 +1120,10 @@ function dbg(text) {
       assert(getWasmTableEntry(ptr), `missing table entry in dynCall: ${ptr}`);
       var rtn = getWasmTableEntry(ptr).apply(null, args);
       return rtn;
-
+  
     }
 
-
+  
     /**
      * @param {number} ptr
      * @param {string} type
@@ -1116,7 +1148,7 @@ function dbg(text) {
       return '0x' + ptr.toString(16).padStart(8, '0');
     }
 
-
+  
     /**
      * @param {number} ptr
      * @param {number} value
@@ -1149,7 +1181,7 @@ function dbg(text) {
       HEAP32[((___errno_location())>>2)] = value;
       return value;
     }
-
+  
   var PATH = {isAbs:(path) => path.charAt(0) === '/',splitPath:(filename) => {
         var splitPathRe = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
         return splitPathRe.exec(filename).slice(1);
@@ -1214,7 +1246,7 @@ function dbg(text) {
       },join2:(l, r) => {
         return PATH.normalize(l + '/' + r);
       }};
-
+  
   function initRandomFill() {
       if (typeof crypto == 'object' && typeof crypto['getRandomValues'] == 'function') {
         // for modern web browsers
@@ -1227,9 +1259,9 @@ function dbg(text) {
       // Lazily init on the first invocation.
       return (randomFill = initRandomFill())(view);
     }
-
-
-
+  
+  
+  
   var PATH_FS = {resolve:function() {
         var resolvedPath = '',
           resolvedAbsolute = false;
@@ -1280,8 +1312,8 @@ function dbg(text) {
         outputParts = outputParts.concat(toParts.slice(samePartsLength));
         return outputParts.join('/');
       }};
-
-
+  
+  
   function lengthBytesUTF8(str) {
       var len = 0;
       for (var i = 0; i < str.length; ++i) {
@@ -1302,14 +1334,14 @@ function dbg(text) {
       }
       return len;
     }
-
+  
   function stringToUTF8Array(str, heap, outIdx, maxBytesToWrite) {
       assert(typeof str === 'string');
       // Parameter maxBytesToWrite is not optional. Negative values, 0, null,
       // undefined and false each don't write out any bytes.
       if (!(maxBytesToWrite > 0))
         return 0;
-
+  
       var startIdx = outIdx;
       var endIdx = outIdx + maxBytesToWrite - 1; // -1 for string null terminator.
       for (var i = 0; i < str.length; ++i) {
@@ -1358,9 +1390,9 @@ function dbg(text) {
     if (dontAddNull) u8array.length = numBytesWritten;
     return u8array;
   }
-
+  
   var UTF8Decoder = typeof TextDecoder != 'undefined' ? new TextDecoder('utf8') : undefined;
-
+  
     /**
      * Given a pointer 'idx' to a null-terminated UTF8-encoded string in the given
      * array that contains uint8 values, returns a copy of that string as a
@@ -1379,7 +1411,7 @@ function dbg(text) {
       // (As a tiny code save trick, compare endPtr against endIdx using a negation,
       // so that undefined means Infinity)
       while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
-
+  
       if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
         return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
       }
@@ -1402,7 +1434,7 @@ function dbg(text) {
           if ((u0 & 0xF8) != 0xF0) warnOnce('Invalid UTF-8 leading byte ' + ptrToString(u0) + ' encountered when deserializing a UTF-8 string in wasm memory to a JS string!');
           u0 = ((u0 & 7) << 18) | (u1 << 12) | (u2 << 6) | (heapOrArray[idx++] & 63);
         }
-
+  
         if (u0 < 0x10000) {
           str += String.fromCharCode(u0);
         } else {
@@ -1532,13 +1564,13 @@ function dbg(text) {
             tty.output = [];
           }
         }}};
-
-
+  
+  
   function zeroMemory(address, size) {
       HEAPU8.fill(0, address, address + size);
       return address;
     }
-
+  
   function alignMemory(size, alignment) {
       assert(alignment, "alignment argument is required");
       return Math.ceil(size / alignment) * alignment;
@@ -1614,7 +1646,7 @@ function dbg(text) {
           // When the byte data of the file is populated, this will point to either a typed array, or a normal JS array. Typed arrays are preferred
           // for performance, and used by default. However, typed arrays are not resizable like normal JS arrays are, so there is a small disk size
           // penalty involved for appending file writes that continuously grow a file similar to std::vector capacity vs used -scheme.
-          node.contents = null;
+          node.contents = null; 
         } else if (FS.isLink(node.mode)) {
           node.node_ops = MEMFS.ops_table.link.node;
           node.stream_ops = MEMFS.ops_table.link.stream;
@@ -1762,11 +1794,11 @@ function dbg(text) {
         },write:function(stream, buffer, offset, length, position, canOwn) {
           // The data buffer should be a typed array view
           assert(!(buffer instanceof ArrayBuffer));
-
+  
           if (!length) return 0;
           var node = stream.node;
           node.timestamp = Date.now();
-
+  
           if (buffer.subarray && (!node.contents || node.contents.subarray)) { // This write is from a typed array to a typed array?
             if (canOwn) {
               assert(position === 0, 'canOwn must imply no weird position inside the file');
@@ -1782,7 +1814,7 @@ function dbg(text) {
               return length;
             }
           }
-
+  
           // Appending to an existing file and we need to reallocate, or source data did not come as a typed array.
           MEMFS.expandFileStorage(node, position+length);
           if (node.contents.subarray && buffer.subarray) {
@@ -1846,7 +1878,7 @@ function dbg(text) {
           // should we check if bytesWritten and length are the same?
           return 0;
         }}};
-
+  
   /** @param {boolean=} noRunDep */
   function asyncLoad(url, onload, onerror, noRunDep) {
       var dep = !noRunDep ? getUniqueRunDependency(`al ${url}`) : '';
@@ -1863,12 +1895,12 @@ function dbg(text) {
       });
       if (dep) addRunDependency(dep);
     }
-
+  
   var preloadPlugins = Module['preloadPlugins'] || [];
   function FS_handledByPreloadPlugin(byteArray, fullname, finish, onerror) {
       // Ensure plugins are ready.
       if (typeof Browser != 'undefined') Browser.init();
-
+  
       var handled = false;
       preloadPlugins.forEach(function(plugin) {
         if (handled) return;
@@ -1908,7 +1940,7 @@ function dbg(text) {
         processData(url);
       }
     }
-
+  
   function FS_modeStringToFlags(str) {
       var flagModes = {
         'r': 0,
@@ -1924,17 +1956,17 @@ function dbg(text) {
       }
       return flags;
     }
-
+  
   function FS_getMode(canRead, canWrite) {
       var mode = 0;
       if (canRead) mode |= 292 | 73;
       if (canWrite) mode |= 146;
       return mode;
     }
-
-
-
-
+  
+  
+  
+  
   var WORKERFS = {DIR_MODE:16895,FILE_MODE:33279,reader:null,mount:function (mount) {
         assert(ENVIRONMENT_IS_WORKER);
         if (!WORKERFS.reader) WORKERFS.reader = new FileReaderSync();
@@ -2062,11 +2094,11 @@ function dbg(text) {
           }
           return position;
         }}};
-
+  
   var ERRNO_MESSAGES = {0:"Success",1:"Arg list too long",2:"Permission denied",3:"Address already in use",4:"Address not available",5:"Address family not supported by protocol family",6:"No more processes",7:"Socket already connected",8:"Bad file number",9:"Trying to read unreadable message",10:"Mount device busy",11:"Operation canceled",12:"No children",13:"Connection aborted",14:"Connection refused",15:"Connection reset by peer",16:"File locking deadlock error",17:"Destination address required",18:"Math arg out of domain of func",19:"Quota exceeded",20:"File exists",21:"Bad address",22:"File too large",23:"Host is unreachable",24:"Identifier removed",25:"Illegal byte sequence",26:"Connection already in progress",27:"Interrupted system call",28:"Invalid argument",29:"I/O error",30:"Socket is already connected",31:"Is a directory",32:"Too many symbolic links",33:"Too many open files",34:"Too many links",35:"Message too long",36:"Multihop attempted",37:"File or path name too long",38:"Network interface is not configured",39:"Connection reset by network",40:"Network is unreachable",41:"Too many open files in system",42:"No buffer space available",43:"No such device",44:"No such file or directory",45:"Exec format error",46:"No record locks available",47:"The link has been severed",48:"Not enough core",49:"No message of desired type",50:"Protocol not available",51:"No space left on device",52:"Function not implemented",53:"Socket is not connected",54:"Not a directory",55:"Directory not empty",56:"State not recoverable",57:"Socket operation on non-socket",59:"Not a typewriter",60:"No such device or address",61:"Value too large for defined data type",62:"Previous owner died",63:"Not super-user",64:"Broken pipe",65:"Protocol error",66:"Unknown protocol",67:"Protocol wrong type for socket",68:"Math result not representable",69:"Read only file system",70:"Illegal seek",71:"No such process",72:"Stale file handle",73:"Connection timed out",74:"Text file busy",75:"Cross-device link",100:"Device not a stream",101:"Bad font file fmt",102:"Invalid slot",103:"Invalid request code",104:"No anode",105:"Block device required",106:"Channel number out of range",107:"Level 3 halted",108:"Level 3 reset",109:"Link number out of range",110:"Protocol driver not attached",111:"No CSI structure available",112:"Level 2 halted",113:"Invalid exchange",114:"Invalid request descriptor",115:"Exchange full",116:"No data (for no delay io)",117:"Timer expired",118:"Out of streams resources",119:"Machine is not on the network",120:"Package not installed",121:"The object is remote",122:"Advertise error",123:"Srmount error",124:"Communication error on send",125:"Cross mount point (not really error)",126:"Given log. name not unique",127:"f.d. invalid for this operation",128:"Remote address changed",129:"Can   access a needed shared lib",130:"Accessing a corrupted shared lib",131:".lib section in a.out corrupted",132:"Attempting to link in too many libs",133:"Attempting to exec a shared library",135:"Streams pipe error",136:"Too many users",137:"Socket type not supported",138:"Not supported",139:"Protocol family not supported",140:"Can't send after socket shutdown",141:"Too many references",142:"Host is down",148:"No medium (in tape drive)",156:"Level 2 not synchronized"};
-
+  
   var ERRNO_CODES = {};
-
+  
   function demangle(func) {
       warnOnce('warning: build with -sDEMANGLE_SUPPORT to link in libcxxabi demangling');
       return func;
@@ -2082,43 +2114,43 @@ function dbg(text) {
     }
   var FS = {root:null,mounts:[],devices:{},streams:[],nextInode:1,nameTable:null,currentPath:"/",initialized:false,ignorePermissions:true,ErrnoError:null,genericErrors:{},filesystems:null,syncFSRequests:0,lookupPath:(path, opts = {}) => {
         path = PATH_FS.resolve(path);
-
+  
         if (!path) return { path: '', node: null };
-
+  
         var defaults = {
           follow_mount: true,
           recurse_count: 0
         };
         opts = Object.assign(defaults, opts)
-
+  
         if (opts.recurse_count > 8) {  // max recursive lookup of 8
           throw new FS.ErrnoError(32);
         }
-
+  
         // split the absolute path
         var parts = path.split('/').filter((p) => !!p);
-
+  
         // start at the root
         var current = FS.root;
         var current_path = '/';
-
+  
         for (var i = 0; i < parts.length; i++) {
           var islast = (i === parts.length-1);
           if (islast && opts.parent) {
             // stop resolving
             break;
           }
-
+  
           current = FS.lookupNode(current, parts[i]);
           current_path = PATH.join2(current_path, parts[i]);
-
+  
           // jump to the mount's root node if this is a mountpoint
           if (FS.isMountpoint(current)) {
             if (!islast || (islast && opts.follow_mount)) {
               current = current.mounted.root;
             }
           }
-
+  
           // by default, lookupPath will not follow a symlink if it is the final path component.
           // setting opts.follow = true will override this behavior.
           if (!islast || opts.follow) {
@@ -2126,17 +2158,17 @@ function dbg(text) {
             while (FS.isLink(current.mode)) {
               var link = FS.readlink(current_path);
               current_path = PATH_FS.resolve(PATH.dirname(current_path), link);
-
+  
               var lookup = FS.lookupPath(current_path, { recurse_count: opts.recurse_count + 1 });
               current = lookup.node;
-
+  
               if (count++ > 40) {  // limit max consecutive symlinks to 40 (SYMLOOP_MAX).
                 throw new FS.ErrnoError(32);
               }
             }
           }
         }
-
+  
         return { path: current_path, node: current };
       },getPath:(node) => {
         var path;
@@ -2151,7 +2183,7 @@ function dbg(text) {
         }
       },hashName:(parentid, name) => {
         var hash = 0;
-
+  
         for (var i = 0; i < name.length; i++) {
           hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
         }
@@ -2191,9 +2223,9 @@ function dbg(text) {
       },createNode:(parent, name, mode, rdev) => {
         assert(typeof parent == 'object')
         var node = new FS.FSNode(parent, name, mode, rdev);
-
+  
         FS.hashAddNode(node);
-
+  
         return node;
       },destroyNode:(node) => {
         FS.hashRemoveNode(node);
@@ -2354,37 +2386,37 @@ function dbg(text) {
       },getDevice:(dev) => FS.devices[dev],getMounts:(mount) => {
         var mounts = [];
         var check = [mount];
-
+  
         while (check.length) {
           var m = check.pop();
-
+  
           mounts.push(m);
-
+  
           check.push.apply(check, m.mounts);
         }
-
+  
         return mounts;
       },syncfs:(populate, callback) => {
         if (typeof populate == 'function') {
           callback = populate;
           populate = false;
         }
-
+  
         FS.syncFSRequests++;
-
+  
         if (FS.syncFSRequests > 1) {
           err(`warning: ${FS.syncFSRequests} FS.syncfs operations in flight at once, probably just doing extra work`);
         }
-
+  
         var mounts = FS.getMounts(FS.root.mount);
         var completed = 0;
-
+  
         function doCallback(errCode) {
           assert(FS.syncFSRequests > 0);
           FS.syncFSRequests--;
           return callback(errCode);
         }
-
+  
         function done(errCode) {
           if (errCode) {
             if (!done.errored) {
@@ -2397,7 +2429,7 @@ function dbg(text) {
             doCallback(null);
           }
         };
-
+  
         // sync all mounts
         mounts.forEach((mount) => {
           if (!mount.type.syncfs) {
@@ -2414,78 +2446,78 @@ function dbg(text) {
         var root = mountpoint === '/';
         var pseudo = !mountpoint;
         var node;
-
+  
         if (root && FS.root) {
           throw new FS.ErrnoError(10);
         } else if (!root && !pseudo) {
           var lookup = FS.lookupPath(mountpoint, { follow_mount: false });
-
+  
           mountpoint = lookup.path;  // use the absolute path
           node = lookup.node;
-
+  
           if (FS.isMountpoint(node)) {
             throw new FS.ErrnoError(10);
           }
-
+  
           if (!FS.isDir(node.mode)) {
             throw new FS.ErrnoError(54);
           }
         }
-
+  
         var mount = {
           type: type,
           opts: opts,
           mountpoint: mountpoint,
           mounts: []
         };
-
+  
         // create a root node for the fs
         var mountRoot = type.mount(mount);
         mountRoot.mount = mount;
         mount.root = mountRoot;
-
+  
         if (root) {
           FS.root = mountRoot;
         } else if (node) {
           // set as a mountpoint
           node.mounted = mount;
-
+  
           // add the new mount to the current mount's children
           if (node.mount) {
             node.mount.mounts.push(mount);
           }
         }
-
+  
         return mountRoot;
       },unmount:(mountpoint) => {
         var lookup = FS.lookupPath(mountpoint, { follow_mount: false });
-
+  
         if (!FS.isMountpoint(lookup.node)) {
           throw new FS.ErrnoError(28);
         }
-
+  
         // destroy the nodes for this mount, and all its child mounts
         var node = lookup.node;
         var mount = node.mounted;
         var mounts = FS.getMounts(mount);
-
+  
         Object.keys(FS.nameTable).forEach((hash) => {
           var current = FS.nameTable[hash];
-
+  
           while (current) {
             var next = current.name_next;
-
+  
             if (mounts.includes(current.mount)) {
               FS.destroyNode(current);
             }
-
+  
             current = next;
           }
         });
-
+  
         // no longer a mountpoint
         node.mounted = null;
-
+  
         // remove this mount from the child mounts
         var idx = node.mount.mounts.indexOf(mount);
         assert(idx !== -1);
@@ -2561,13 +2593,13 @@ function dbg(text) {
         var new_name = PATH.basename(new_path);
         // parents must exist
         var lookup, old_dir, new_dir;
-
+  
         // let the errors from non existant directories percolate up
         lookup = FS.lookupPath(old_path, { parent: true });
         old_dir = lookup.node;
         lookup = FS.lookupPath(new_path, { parent: true });
         new_dir = lookup.node;
-
+  
         if (!old_dir || !new_dir) throw new FS.ErrnoError(44);
         // need to be part of the same mount
         if (old_dir.mount !== new_dir.mount) {
@@ -2858,7 +2890,7 @@ function dbg(text) {
         }
         // we've already handled these, don't pass down to the underlying vfs
         flags &= ~(128 | 512 | 131072);
-
+  
         // register the stream with the filesystem
         var stream = FS.createStream({
           node: node,
@@ -3122,7 +3154,7 @@ function dbg(text) {
         // TODO deprecate the old functionality of a single
         // input / output callback and that utilizes FS.createDevice
         // and instead require a unique set of stream ops
-
+  
         // by default, we symlink the standard streams to the
         // default tty devices. however, if the standard streams
         // have been overwritten we create a unique device for
@@ -3142,7 +3174,7 @@ function dbg(text) {
         } else {
           FS.symlink('/dev/tty1', '/dev/stderr');
         }
-
+  
         // open default streams for the stdin, stdout and stderr devices
         var stdin = FS.open('/dev/stdin', 0);
         var stdout = FS.open('/dev/stdout', 1);
@@ -3172,7 +3204,7 @@ function dbg(text) {
           };
           this.setErrno(errno);
           this.message = ERRNO_MESSAGES[errno];
-
+  
           // Try to get a maximally helpful stack trace. On Node.js, getting Error.stack
           // now ensures it shows what we want.
           if (this.stack) {
@@ -3190,15 +3222,15 @@ function dbg(text) {
         });
       },staticInit:() => {
         FS.ensureErrnoError();
-
+  
         FS.nameTable = new Array(4096);
-
+  
         FS.mount(MEMFS, {}, '/');
-
+  
         FS.createDefaultDirectories();
         FS.createDefaultDevices();
         FS.createSpecialDirectories();
-
+  
         FS.filesystems = {
           'MEMFS': MEMFS,
           'WORKERFS': WORKERFS,
@@ -3206,14 +3238,14 @@ function dbg(text) {
       },init:(input, output, error) => {
         assert(!FS.init.initialized, 'FS.init was previously called. If you want to initialize later with custom parameters, remove any earlier calls (note that one is automatically added to the generated code)');
         FS.init.initialized = true;
-
+  
         FS.ensureErrnoError();
-
+  
         // Allow Module.stdin etc. to provide defaults, if none explicitly passed to us here
         Module['stdin'] = input || Module['stdin'];
         Module['stdout'] = output || Module['stdout'];
         Module['stderr'] = error || Module['stderr'];
-
+  
         FS.createStandardStreams();
       },quit:() => {
         FS.init.initialized = false;
@@ -3399,27 +3431,27 @@ function dbg(text) {
           var header;
           var hasByteServing = (header = xhr.getResponseHeader("Accept-Ranges")) && header === "bytes";
           var usesGzip = (header = xhr.getResponseHeader("Content-Encoding")) && header === "gzip";
-
+  
           var chunkSize = 1024*1024; // Chunk size in bytes
-
+  
           if (!hasByteServing) chunkSize = datalength;
-
+  
           // Function to get a range from the remote URL.
           var doXHR = (from, to) => {
             if (from > to) throw new Error("invalid range (" + from + ", " + to + ") or no bytes requested!");
             if (to > datalength-1) throw new Error("only " + datalength + " bytes available! programmer error!");
-
+  
             // TODO: Use mozResponseArrayBuffer, responseStream, etc. if available.
             var xhr = new XMLHttpRequest();
             xhr.open('GET', url, false);
             if (datalength !== chunkSize) xhr.setRequestHeader("Range", "bytes=" + from + "-" + to);
-
+  
             // Some hints to the browser that we want binary data.
             xhr.responseType = 'arraybuffer';
             if (xhr.overrideMimeType) {
               xhr.overrideMimeType('text/plain; charset=x-user-defined');
             }
-
+  
             xhr.send(null);
             if (!(xhr.status >= 200 && xhr.status < 300 || xhr.status === 304)) throw new Error("Couldn't load " + url + ". Status: " + xhr.status);
             if (xhr.response !== undefined) {
@@ -3438,7 +3470,7 @@ function dbg(text) {
             if (typeof lazyArray.chunks[chunkNum] == 'undefined') throw new Error('doXHR failed!');
             return lazyArray.chunks[chunkNum];
           });
-
+  
           if (usesGzip || !datalength) {
             // if the server uses gzip or doesn't supply the length, we have to download the whole file to get the (uncompressed) length
             chunkSize = datalength = 1; // this will force getter(0)/doXHR do download the whole file
@@ -3446,7 +3478,7 @@ function dbg(text) {
             chunkSize = datalength;
             out("LazyFiles on gzip forces download of the whole file when length is accessed");
           }
-
+  
           this._length = datalength;
           this._chunkSize = chunkSize;
           this.lengthKnown = true;
@@ -3472,12 +3504,12 @@ function dbg(text) {
               }
             }
           });
-
+  
           var properties = { isDevice: false, contents: lazyArray };
         } else {
           var properties = { isDevice: false, url: url };
         }
-
+  
         var node = FS.createFile(parent, name, properties, canRead, canWrite);
         // This is a total hack, but I want to get this lazy file code out of the
         // core of MEMFS. If we want to keep this lazy file concept I feel it should
@@ -3551,9 +3583,9 @@ function dbg(text) {
       },standardizePath:() => {
         abort('FS.standardizePath has been removed; use PATH.normalize instead');
       }};
-
-
-
+  
+  
+  
     /**
      * Given a pointer 'ptr' to a null-terminated UTF8-encoded string in the
      * emscripten HEAP, returns a copy of that string as a Javascript String object.
@@ -3649,7 +3681,7 @@ function dbg(text) {
   function ___syscall_fcntl64(fd, cmd, varargs) {
   SYSCALLS.varargs = varargs;
   try {
-
+  
       var stream = SYSCALLS.getStreamFromFD(fd);
       switch (cmd) {
         case 0: {
@@ -3673,7 +3705,7 @@ function dbg(text) {
         }
         case 5:
         /* case 5: Currently in musl F_GETLK64 has same value as F_GETLK, so omitted to avoid duplicate case blocks. If that changes, uncomment this */ {
-
+          
           var arg = SYSCALLS.get();
           var offset = 0;
           // We're always unlocked.
@@ -3684,8 +3716,8 @@ function dbg(text) {
         case 7:
         /* case 6: Currently in musl F_SETLK64 has same value as F_SETLK, so omitted to avoid duplicate case blocks. If that changes, uncomment this */
         /* case 7: Currently in musl F_SETLKW64 has same value as F_SETLKW, so omitted to avoid duplicate case blocks. If that changes, uncomment this */
-
-
+          
+          
           return 0; // Pretend that the locking is successful.
         case 16:
         case 8:
@@ -3707,7 +3739,7 @@ function dbg(text) {
   function ___syscall_openat(dirfd, path, flags, varargs) {
   SYSCALLS.varargs = varargs;
   try {
-
+  
       path = SYSCALLS.getStr(path);
       path = SYSCALLS.calculateAt(dirfd, path);
       var mode = varargs ? SYSCALLS.get() : 0;
@@ -3735,19 +3767,19 @@ function dbg(text) {
       HEAP32[(((tmPtr)+(28))>>2)] = yday;
     }
 
-
+  
   function isLeapYear(year) {
         return year%4 === 0 && (year%100 !== 0 || year%400 === 0);
     }
-
+  
   var MONTH_DAYS_LEAP_CUMULATIVE = [0,31,60,91,121,152,182,213,244,274,305,335];
-
+  
   var MONTH_DAYS_REGULAR_CUMULATIVE = [0,31,59,90,120,151,181,212,243,273,304,334];
   function ydayFromDate(date) {
       var leap = isLeapYear(date.getFullYear());
       var monthDaysCumulative = (leap ? MONTH_DAYS_LEAP_CUMULATIVE : MONTH_DAYS_REGULAR_CUMULATIVE);
       var yday = monthDaysCumulative[date.getMonth()] + date.getDate() - 1; // -1 since it's days since Jan 1
-
+  
       return yday;
     }
   function __localtime_js(time, tmPtr) {
@@ -3759,11 +3791,11 @@ function dbg(text) {
       HEAP32[(((tmPtr)+(16))>>2)] = date.getMonth();
       HEAP32[(((tmPtr)+(20))>>2)] = date.getFullYear()-1900;
       HEAP32[(((tmPtr)+(24))>>2)] = date.getDay();
-
+  
       var yday = ydayFromDate(date)|0;
       HEAP32[(((tmPtr)+(28))>>2)] = yday;
       HEAP32[(((tmPtr)+(36))>>2)] = -(date.getTimezoneOffset() * 60);
-
+  
       // Attention: DST is in December in South, and some regions don't have DST at all.
       var start = new Date(date.getFullYear(), 0, 1);
       var summerOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
@@ -3780,7 +3812,7 @@ function dbg(text) {
                           HEAP32[(((tmPtr)+(4))>>2)],
                           HEAP32[((tmPtr)>>2)],
                           0);
-
+  
       // There's an ambiguous hour when the time goes back; the tm_isdst field is
       // used to disambiguate it.  Date() basically guesses, so we fix it up if it
       // guessed wrong, or fill in tm_isdst with the guess if it's -1.
@@ -3799,7 +3831,7 @@ function dbg(text) {
         // Don't try setMinutes(date.getMinutes() + ...) -- it's messed up.
         date.setTime(date.getTime() + (trueOffset - guessedOffset)*60000);
       }
-
+  
       HEAP32[(((tmPtr)+(24))>>2)] = date.getDay();
       var yday = ydayFromDate(date)|0;
       HEAP32[(((tmPtr)+(28))>>2)] = yday;
@@ -3810,16 +3842,16 @@ function dbg(text) {
       HEAP32[(((tmPtr)+(12))>>2)] = date.getDate();
       HEAP32[(((tmPtr)+(16))>>2)] = date.getMonth();
       HEAP32[(((tmPtr)+(20))>>2)] = date.getYear();
-
+  
       return (date.getTime() / 1000)|0;
     }
 
-
+  
   function stringToUTF8(str, outPtr, maxBytesToWrite) {
       assert(typeof maxBytesToWrite == 'number', 'stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!');
       return stringToUTF8Array(str, HEAPU8,outPtr, maxBytesToWrite);
     }
-
+  
   function stringToNewUTF8(str) {
       var size = lengthBytesUTF8(str) + 1;
       var ret = _malloc(size);
@@ -3833,21 +3865,21 @@ function dbg(text) {
       var summer = new Date(currentYear, 6, 1);
       var winterOffset = winter.getTimezoneOffset();
       var summerOffset = summer.getTimezoneOffset();
-
+  
       // Local standard timezone offset. Local standard time is not adjusted for daylight savings.
       // This code uses the fact that getTimezoneOffset returns a greater value during Standard Time versus Daylight Saving Time (DST).
       // Thus it determines the expected output during Standard Time, and it compares whether the output of the given date the same (Standard) or less (DST).
       var stdTimezoneOffset = Math.max(winterOffset, summerOffset);
-
+  
       // timezone is specified as seconds west of UTC ("The external variable
       // `timezone` shall be set to the difference, in seconds, between
       // Coordinated Universal Time (UTC) and local standard time."), the same
       // as returned by stdTimezoneOffset.
       // See http://pubs.opengroup.org/onlinepubs/009695399/functions/tzset.html
       HEAPU32[((timezone)>>2)] = stdTimezoneOffset * 60;
-
+  
       HEAP32[((daylight)>>2)] = Number(winterOffset != summerOffset);
-
+  
       function extractZone(date) {
         var match = date.toTimeString().match(/\(([A-Za-z ]+)\)$/);
         return match ? match[1] : "GMT";
@@ -3882,7 +3914,7 @@ function dbg(text) {
   function getHeapMax() {
       return HEAPU8.length;
     }
-
+  
   function abortOnCannotGrowMemory(requestedSize) {
       abort(`Cannot enlarge memory arrays to size ${requestedSize} bytes (OOM). Either (1) compile with -sINITIAL_MEMORY=X with X higher than the current value ${HEAP8.length}, (2) compile with -sALLOW_MEMORY_GROWTH which allows increasing the size at runtime, or (3) if you want malloc to return NULL (0) instead of this abort, compile with -sABORTING_MALLOC=0`);
     }
@@ -3893,7 +3925,7 @@ function dbg(text) {
     }
 
   var ENV = {};
-
+  
   function getExecutableName() {
       return thisProgram || './this.program';
     }
@@ -3927,7 +3959,7 @@ function dbg(text) {
       }
       return getEnvStrings.strings;
     }
-
+  
   function stringToAscii(str, buffer) {
       for (var i = 0; i < str.length; ++i) {
         assert(str.charCodeAt(i) === (str.charCodeAt(i) & 0xff));
@@ -3936,7 +3968,7 @@ function dbg(text) {
       // Null-terminate the string
       HEAP8[((buffer)>>0)] = 0;
     }
-
+  
   function _environ_get(__environ, environ_buf) {
       var bufSize = 0;
       getEnvStrings().forEach(function(string, i) {
@@ -3948,7 +3980,7 @@ function dbg(text) {
       return 0;
     }
 
-
+  
   function _environ_sizes_get(penviron_count, penviron_buf_size) {
       var strings = getEnvStrings();
       HEAPU32[((penviron_count)>>2)] = strings.length;
@@ -3962,7 +3994,7 @@ function dbg(text) {
 
   function _fd_close(fd) {
   try {
-
+  
       var stream = SYSCALLS.getStreamFromFD(fd);
       FS.close(stream);
       return 0;
@@ -3974,7 +4006,7 @@ function dbg(text) {
 
   function _fd_fdstat_get(fd, pbuf) {
   try {
-
+  
       var rightsBase = 0;
       var rightsInheriting = 0;
       var flags = 0;
@@ -4015,10 +4047,10 @@ function dbg(text) {
       }
       return ret;
     }
-
+  
   function _fd_read(fd, iov, iovcnt, pnum) {
   try {
-
+  
       var stream = SYSCALLS.getStreamFromFD(fd);
       var num = doReadv(stream, iov, iovcnt);
       HEAPU32[((pnum)>>2)] = num;
@@ -4030,18 +4062,18 @@ function dbg(text) {
   }
 
   var MAX_INT53 = 9007199254740992;
-
+  
   var MIN_INT53 = -9007199254740992;
   function bigintToI53Checked(num) {
       return (num < MIN_INT53 || num > MAX_INT53) ? NaN : Number(num);
     }
-
-
-
-
+  
+  
+  
+  
   function _fd_seek(fd, offset, whence, newOffset) {
   try {
-
+  
       offset = bigintToI53Checked(offset); if (isNaN(offset)) return 61;
       var stream = SYSCALLS.getStreamFromFD(fd);
       FS.llseek(stream, offset, whence);
@@ -4070,10 +4102,10 @@ function dbg(text) {
       }
       return ret;
     }
-
+  
   function _fd_write(fd, iov, iovcnt, pnum) {
   try {
-
+  
       var stream = SYSCALLS.getStreamFromFD(fd);
       var num = doWritev(stream, iov, iovcnt);
       HEAPU32[((pnum)>>2)] = num;
@@ -4286,8 +4318,6 @@ var asm = createWasm();
 /** @type {function(...*):?} */
 var ___wasm_call_ctors = createExportWrapper("__wasm_call_ctors");
 /** @type {function(...*):?} */
-var _RegisterAll = Module["_RegisterAll"] = createExportWrapper("RegisterAll");
-/** @type {function(...*):?} */
 var _OpenDecoder = Module["_OpenDecoder"] = createExportWrapper("OpenDecoder");
 /** @type {function(...*):?} */
 var _malloc = Module["_malloc"] = createExportWrapper("malloc");
@@ -4346,7 +4376,7 @@ var _emscripten_stack_get_current = function() {
   return (_emscripten_stack_get_current = Module["asm"]["emscripten_stack_get_current"]).apply(null, arguments);
 };
 
-var _ff_h264_cabac_tables = Module['_ff_h264_cabac_tables'] = 5361172;
+var _ff_h264_cabac_tables = Module['_ff_h264_cabac_tables'] = 5361140;
 
 // include: postamble.js
 // === Auto-generated postamble setup entry stuff ===

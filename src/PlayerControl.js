@@ -51,7 +51,7 @@ export class PlayerControl {
     this.controlPlayer("TEARDOWN");
   }
   close() {
-    this.ws?.disconnect();
+    return this.ws?.disconnect();
   }
   playByTime(timestamp) {
     this.controlPlayer("PLAY", "video", timestamp);

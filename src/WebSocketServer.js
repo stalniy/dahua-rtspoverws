@@ -587,15 +587,18 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
           });
         };
       },
-      disconnect: function () {
-        sendCommand(buildRTSPCommand("TEARDOWN", null, null)),
-          clearInterval(J),
-          (J = null),
-          null !== socket &&
-            socket.readyState === WebSocket.OPEN &&
-            (socket.close(), (socket = null), (G = null)),
-          null !== socket && (socket.onerror = null),
-          workerManager.terminate();
+      async disconnect() {
+        clearInterval(J);
+        J = null;
+        if (socket && !(socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED)) {
+          sendCommand(buildRTSPCommand("TEARDOWN", null, null));
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          socket.close();
+          socket.onerror = null;
+          socket = null;
+          G = null;
+        }
+        await workerManager.terminate();
       },
       controlPlayer: function (a) {
         var b = "";

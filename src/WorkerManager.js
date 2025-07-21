@@ -370,10 +370,15 @@ export default function WorkerManager() {
               }
           };
 
-          await Promise.all([
-            sendWorkerMessageAndWaitForEvent(videoProcessWorker, sdpInfoMessage, "sdpInfoProcessed"),
+          const [audioSdpInfoProcessed] = await Promise.all([
             sendWorkerMessageAndWaitForEvent(audioProcessWorker, sdpInfoMessage, "sdpInfoProcessed"),
+            sendWorkerMessageAndWaitForEvent(videoProcessWorker, sdpInfoMessage, "sdpInfoProcessed"),
           ]);
+
+          if (!audioSdpInfoProcessed.hasAudioSession) {
+            audioProcessWorker.terminate();
+            audioProcessWorker = null;
+          }
 
           if (N = c,
           N)
@@ -775,20 +780,57 @@ export default function WorkerManager() {
           p.stopRendering(),
           p.startRendering()
       },
-      terminate: function() {
-          "backup" !== U && (videoProcessWorker && (videoProcessWorker.terminate(),
-          videoProcessWorker = null),
-          audioProcessWorker && (audioProcessWorker.terminate(),
-          audioProcessWorker = null)),
-          n && n.terminate(),
-          r && (r.terminate(),
-          r = null),
-          p && p.terminate(),
-          q && q.terminate(),
-          X && X.terminate(),
-          zb && (zb = null),
-          p = null,
-          O = !0
+      async terminate() {
+          // Only terminate video/audio workers if not in backup mode
+          if (U !== "backup") {
+              if (videoProcessWorker) {
+                  await sendWorkerMessageAndWaitForEvent(videoProcessWorker, { type: "terminate" }, "terminateProcessed");
+                  videoProcessWorker.terminate();
+                  videoProcessWorker = null;
+              }
+              if (audioProcessWorker) {
+                  audioProcessWorker.terminate();
+                  audioProcessWorker = null;
+              }
+          }
+
+          // Terminate audio talk worker
+          if (n) {
+              n.terminate();
+              n = null;
+          }
+
+          // Terminate talk service
+          if (r) {
+              r.terminate();
+              r = null;
+          }
+
+          // Terminate stream drawer
+          if (p) {
+              p.terminate();
+              p = null;
+          }
+
+          // Terminate audio player
+          if (q) {
+              q.terminate();
+              q = null;
+          }
+
+          // Terminate video media source
+          if (X) {
+              X.terminate();
+              X = null;
+          }
+
+          // Clean up additional components
+          if (zb) {
+              zb = null;
+          }
+
+          // Mark as terminated
+          O = true;
       },
       postRtspOver: function() {
           videoProcessWorker.postMessage({
@@ -816,7 +858,7 @@ function sendWorkerMessageAndWaitForEvent(worker, message, eventName) {
           if (event.data.type === eventName) {
               debug.log(`${worker.name}.${eventName}`);
               worker.removeEventListener("message", messageListener);
-              resolve();
+              resolve(event.data);
           }
       });
       worker.postMessage(message);

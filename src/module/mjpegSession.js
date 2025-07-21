@@ -199,7 +199,8 @@ export function MjpegSession() {
         },
         setCheckDelay: function(a) {
             this.checkDelay = a
-        }
+        },
+        terminate() {}
     },
     new a
 };

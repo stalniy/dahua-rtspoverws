@@ -61,6 +61,11 @@ export function H265Decoder(Module) {
         free: function() {
             Module._free(j);
             j = null
+        },
+        close() {
+          this.free();
+          Module._CloseDecoder(k);
+          k = null;
         }
     },
     new a

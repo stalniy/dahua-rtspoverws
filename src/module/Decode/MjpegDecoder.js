@@ -37,4 +37,12 @@ export class MJPEGDecoder {
       codecType: "mjpeg"
     };
   }
+
+  free() {
+    // do nothing
+  }
+
+  close() {
+    // do nothing
+  }
 }

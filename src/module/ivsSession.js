@@ -943,7 +943,8 @@ export function IvsSession() {
       setBufferfullCallback: function() {},
       setReturnCallback: function(a) {
           this.rtpReturnCallback = a
-      }
+      },
+      terminate() {}
   },
   new a
 };

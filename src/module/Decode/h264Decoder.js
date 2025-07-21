@@ -55,9 +55,16 @@ export function H264Decoder(Module) {
       isFirstFrame: function() {
           return m
       },
-      free: function() {
-          Module._free(j),
-          j = null
+      free() {
+        if (j) {
+          Module._free(j);
+          j = null;
+        }
+      },
+      close() {
+        this.free();
+        Module._CloseDecoder(k);
+        k = null;
       }
   },
   new a

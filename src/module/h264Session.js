@@ -617,6 +617,9 @@ export function H264Session(ffmpeg) {
             v = !1,
             k = null,
             l = null
+        },
+        terminate() {
+            this.decoder.close();
         }
     },
     new c

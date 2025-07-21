@@ -47,8 +47,13 @@ function receiveMessage(message) {
     case "initStartTime":
         videoRtpSessionsArray[videoCHID].initStartTime();
         break;
-    case "end":
-        sendMessage("end")
+    case "terminate":
+        videoRtpSessionsArray.forEach(rtpSession => {
+            rtpSession.terminate();
+        });
+        videoRtpSessionsArray = [];
+        rtpSession = null;
+        sendMessage("terminateProcessed")
     }
 }
 async function setVideoRtpSession(a) {

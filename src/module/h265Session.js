@@ -436,6 +436,9 @@ export function H265Session(ffmpeg) {
         },
         setTimeStamp: function(a) {
             this.timeData = a
+        },
+        terminate() {
+            this.decoder.close();
         }
     },
     new a
