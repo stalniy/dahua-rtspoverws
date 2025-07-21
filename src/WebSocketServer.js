@@ -316,16 +316,12 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         )
           return void (s = b.length);
         var j = b.subarray(p, t + p);
-        l(r, j), (b = b.subarray(t + p)), (s = b.length);
+        workerManager.parseRTPData(r, j);
+        (b = b.subarray(t + p));
+        (s = b.length);
       }
 
       sendCommand(await handleResponse(command))
-  }
-  function k(a) {
-    K = a;
-  }
-  function l(a, b) {
-    workerManager.parseRTPData(a, b), k(!0);
   }
   function m(a) {
     var b = {},
@@ -551,7 +547,7 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
     H = "",
     I = !1,
     J = null,
-    K = !1,
+    // K = !1,
     L = {},
     M = rtspUrl,
     N = null,
