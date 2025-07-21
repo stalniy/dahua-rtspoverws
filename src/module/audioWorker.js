@@ -18,7 +18,7 @@ function receiveMessage(a) {
         var c = b.data.aacCodecInfo;
         setAudioRtpSession(sdpInfo, c).then(() => {
             debug.log("audio sdpInfo processed");
-            postMessage({ type: "sdpInfoProcessed" });
+            postMessage({ type: "sdpInfoProcessed", hasAudioSession: !!rtpSession });
         });
         break;
     case "MediaData":
@@ -31,9 +31,9 @@ function receiveMessage(a) {
         }
     }
 }
-async function setAudioRtpSession(a, b) {
+async function setAudioRtpSession(sdpInfo, b) {
     let G711Session, G726Session, AACSession;
-    for (var c = a, d = 0; d < a.length; d++)
+    for (var c = sdpInfo, d = 0; d < sdpInfo.length; d++)
         if (-1 === c[d].trackID.search("trackID=t")) {
             switch (rtpSession = null,
             c[d].codecName) {

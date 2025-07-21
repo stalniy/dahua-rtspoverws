@@ -375,11 +375,6 @@ export default function WorkerManager() {
             sendWorkerMessageAndWaitForEvent(videoProcessWorker, sdpInfoMessage, "sdpInfoProcessed"),
           ]);
 
-          if (!audioSdpInfoProcessed.hasAudioSession) {
-            audioProcessWorker.terminate();
-            audioProcessWorker = null;
-          }
-
           if (N = c,
           N)
               try {
@@ -402,7 +397,14 @@ export default function WorkerManager() {
               }
           rb = null,
           mb = !1,
-          K = a
+          K = a;
+          if (this.sdpInfoProcessedCallback) {
+            this.sdpInfoProcessedCallback({
+              hasAudioIn: audioSdpInfoProcessed.hasAudioSession,
+              hasAudioOut: false,
+              hasVideo: true,
+            });
+          }
       },
       parseRTPData: function(a, b) {
           function c() {
@@ -695,6 +697,9 @@ export default function WorkerManager() {
           case "Waiting":
               this.waitingCallback = b;
               break;
+          case "SdpInfoProcessed":
+              this.sdpInfoProcessedCallback = b;
+              break;
           default:
               debug.log(a),
               debug.log("workerManager::setCallback() : type is unknown")
@@ -780,6 +785,17 @@ export default function WorkerManager() {
           p.stopRendering(),
           p.startRendering()
       },
+      terminateAudio() {
+        if (audioProcessWorker) {
+          audioProcessWorker.terminate();
+          audioProcessWorker = null;
+        }
+
+        if (q) {
+          q.terminate();
+          q = null;
+        }
+      },
       async terminate() {
           // Only terminate video/audio workers if not in backup mode
           if (U !== "backup") {
@@ -788,10 +804,7 @@ export default function WorkerManager() {
                   videoProcessWorker.terminate();
                   videoProcessWorker = null;
               }
-              if (audioProcessWorker) {
-                  audioProcessWorker.terminate();
-                  audioProcessWorker = null;
-              }
+              this.terminateAudio();
           }
 
           // Terminate audio talk worker

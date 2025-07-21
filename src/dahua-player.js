@@ -274,7 +274,7 @@ class DahuaPlayer extends HTMLElement {
               <span class="icon icon-play"></span>
             </button>
 
-            <div class="volume-control">
+            <div class="volume-control" style="display: none;">
               <button class="control-button" id="volume-btn" title="Volume">
                 <span class="icon icon-volume-mute"></span>
               </button>
@@ -394,7 +394,16 @@ class DahuaPlayer extends HTMLElement {
 
       this.#player.on('DecodeStart', () => {
         this.#hidePreviewImage();
-      })
+      });
+
+      const volumeBtn = this.shadowRoot.querySelector('#volume-btn').parentNode;
+      this.#player.on("SdpInfoProcessed", (event) => {
+        if (!event.hasAudioIn) {
+          volumeBtn.style.display = 'none';
+        } else {
+          volumeBtn.style.display = 'block';
+        }
+      });
 
       this.#player.init(this.#videoCanvas, {}, channel).then(() => {
         loadingEl.style.display = 'none';
@@ -406,7 +415,9 @@ class DahuaPlayer extends HTMLElement {
         if (this.hasAttribute('autoplay')) {
           this.play();
         }
-      })
+      });
+
+
     } catch (error) {
       debug.error('Failed to initialize player:', error);
       this.#showError('Failed to initialize player. Please check your configuration.');

@@ -555,7 +555,6 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
     L = {},
     M = rtspUrl,
     N = null,
-    O = {},
     P = "",
     Q = !1;
   return (
@@ -599,6 +598,9 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
           G = null;
         }
         await workerManager.terminate();
+      },
+      terminateAudio() {
+        return workerManager.terminateAudio();
       },
       controlPlayer: function (a) {
         var b = "";
@@ -646,9 +648,6 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
         if ("Error" == eventName) {
           C = callback;
         }
-      },
-      setUserInfo: function (a, b) {
-        (O.username = a), (O.passWord = b);
       },
       capture: function (a) {
         workerManager.capture(a);

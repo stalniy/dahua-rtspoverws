@@ -20,7 +20,8 @@ export class PlayerControl {
       WorkerReady() {},
       IvsDraw() {},
       FileOver() {},
-      Waiting() {}
+      Waiting() {},
+      SdpInfoProcessed() {},
     };
     this.authenticate= config.authenticate;
     this.el = null;
@@ -36,6 +37,15 @@ export class PlayerControl {
     this.ws.setStoreEncrypt(this.supportStoreEncrypt);
     await this.ws.init(canvasElement, videoElement, channelNumber);
     for (var eventType in this.events) this.ws.setCallback(eventType, this.events[eventType]);
+    if (this.events.SdpInfoProcessed) {
+      const callback = this.events.SdpInfoProcessed;
+      this.ws.setCallback("SdpInfoProcessed", (event) => {
+        if (!event.hasAudioIn) {
+          this.ws.terminateAudio();
+        }
+        callback(event);
+      });
+    }
     this.events = null;
   }
   connect() {
