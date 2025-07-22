@@ -357,29 +357,10 @@ export function H265Session(ffmpeg) {
                 else
                     E += 1;
                         // Collect all NAL units for this frame
-            var nalUnits = [];
 
             for (var F, G = "P", E = 0; E < D.length; E++) {
                 w = b.subarray(D[E] + 3, D[E + 1]);
                 F = b[D[E] + 3] >> 1 & 63;
-
-                // Create NAL unit data structure
-                var nalUnit = {
-                    type: F,
-                    typeHex: F.toString(16),
-                    data: new Uint8Array(w), // Create independent copy for transfer
-                    size: w.length
-                };
-
-                nalUnits.push(nalUnit);
-
-                // Console log NAL unit info
-                // console.log(`NAL Unit ${E}:`, {
-                //     type: F,
-                //     typeHex: F.toString(16),
-                //     size: w.length,
-                //     data: Array.from(w.slice(0, 16)), // First 16 bytes for debug
-                // });
 
                 switch (F) {
                 default:
@@ -436,9 +417,7 @@ export function H265Session(ffmpeg) {
             k = null === k.timestamp ? this.getTimeStamp() : k,
             j.timeStamp = k,
 
-            // Prepare NAL units for main thread processing
             x.nalUnits = {
-                units: nalUnits,
                 frameType: G,
                 width: l,
                 height: m,

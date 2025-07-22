@@ -7,221 +7,24 @@ import { debug } from './debug.js';
 import { AudioPlayerGxx, AudioPlayerAAC } from './audioPlayer.js';
 import VideoWorker from './module/videoWorker.js?worker';
 import AudioWorker from './module/audioWorker.js?worker';
+import { H265Decoder,
+    WebGLVideoFrameRenderer,
+    BitmapVideoFrameRenderer,
+    WebCodecsVideoDecoder,
+ } from "@yume-chan/scrcpy-decoder-webcodecs"
+ import { ScrcpyVideoCodecId } from "@yume-chan/scrcpy";
 
 export default function WorkerManager() {
-/**
-   * Renders a VideoFrame to the StreamDrawer
-   * @param {VideoFrame} frame - The decoded video frame
-   */
-function renderVideoFrame(frame) {
-  if (!S) {
-    console.error('Canvas not available - ensure WorkerManager.init() was called');
-    return;
-  }
-
-  try {
-    const width = frame.codedWidth;
-    const height = frame.codedHeight;
-    const format = frame.format;
-
-    console.log('Rendering VideoFrame:', {
-      width,
-      height,
-      format,
-      timestamp: frame.timestamp,
-      allocationSize: frame.allocationSize(),
-      canvasAvailable: !!S,
-      streamDrawerAvailable: !!p
-    });
-
-    // Use direct canvas rendering for all VideoFrames
-    // This is the most reliable approach for VideoDecoder output
-    renderVideoFrameToCanvas(frame);
-
-    // Alternative: try format-specific rendering if direct fails
-    // if (format === 'RGBA' || format === 'BGRA') {
-    //   renderVideoFrameAsImage(frame);
-    // } else {
-    //   renderVideoFrameAsYUV(frame);
-    // }
-
-  } catch (error) {
-    console.error('Error rendering VideoFrame:', error);
-
-    // Last resort: try to render via OffscreenCanvas
-    try {
-      console.warn('Attempting emergency fallback rendering');
-      renderVideoFrameViaOffscreenCanvas(frame);
-    } catch (emergencyError) {
-      console.error('All rendering methods failed:', emergencyError);
-    }
-  }
-}
-
-/**
- * Renders VideoFrame as YUV data for YUVWebGL
- */
-function renderVideoFrameAsYUV(frame) {
-  try {
-    const width = frame.codedWidth;
-    const height = frame.codedHeight;
-
-    console.log('Attempting YUV render:', {
-      format: frame.format,
-      width,
-      height,
-      allocationSize: frame.allocationSize(),
-      streamDrawerAvailable: !!p
-    });
-
-    // Check if StreamDrawer is ready
-    if (!p) {
-      console.error('StreamDrawer not ready, trying direct canvas rendering');
-      renderVideoFrameToCanvas(frame);
-      return;
-    }
-
-    // For VideoDecoder output, try direct canvas rendering instead of YUV buffer extraction
-    // This is more reliable than trying to extract YUV planes
-    renderVideoFrameToCanvas(frame);
-
-  } catch (error) {
-    console.error('Error rendering VideoFrame as YUV:', error);
-  }
-}
-
-/**
- * Renders VideoFrame directly to canvas - more reliable approach
- */
-function renderVideoFrameToCanvas(frame) {
-  try {
-    // Get the canvas from StreamDrawer
-    const canvas = S; // S is the canvas element from WorkerManager initialization
-
-    if (!canvas) {
-      console.error('Canvas not available');
-      return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      console.error('Could not get 2D context');
-      return;
-    }
-
-    // Set canvas size to match video frame
-    if (canvas.width !== frame.codedWidth || canvas.height !== frame.codedHeight) {
-      canvas.width = frame.codedWidth;
-      canvas.height = frame.codedHeight;
-      console.log('Canvas resized to:', frame.codedWidth, 'x', frame.codedHeight);
-    }
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw VideoFrame directly to canvas
-    ctx.drawImage(frame, 0, 0);
-
-    console.log('VideoFrame rendered directly to canvas:', {
-      width: frame.codedWidth,
-      height: frame.codedHeight,
-      timestamp: frame.timestamp
-    });
-
-    // Update canvas flag for any listeners
-    if (canvas.updatedCanvas !== undefined) {
-      canvas.updatedCanvas = true;
-    }
-
-    // Call timestamp callback if available
-    if (u) {
-      const timestamp = {
-        timestamp: Math.floor(frame.timestamp / 1000000),
-        timestamp_usec: frame.timestamp % 1000000
-      };
-      u(timestamp);
-    }
-
-  } catch (error) {
-    console.error('Error rendering VideoFrame to canvas:', error);
-
-    // Fallback: try OffscreenCanvas approach
-    try {
-      renderVideoFrameViaOffscreenCanvas(frame);
-    } catch (fallbackError) {
-      console.error('Fallback rendering also failed:', fallbackError);
-    }
-  }
-}
-
-/**
- * Fallback rendering using OffscreenCanvas
- */
-function renderVideoFrameViaOffscreenCanvas(frame) {
-  try {
-    // Create temporary canvas for VideoFrame
-    const tempCanvas = new OffscreenCanvas(frame.codedWidth, frame.codedHeight);
-    const tempCtx = tempCanvas.getContext('2d');
-
-    // Draw VideoFrame to temp canvas
-    tempCtx.drawImage(frame, 0, 0);
-
-    // Get main canvas
-    const mainCanvas = S;
-    if (!mainCanvas) return;
-
-    const mainCtx = mainCanvas.getContext('2d');
-    if (!mainCtx) return;
-
-    // Set main canvas size
-    if (mainCanvas.width !== frame.codedWidth || mainCanvas.height !== frame.codedHeight) {
-      mainCanvas.width = frame.codedWidth;
-      mainCanvas.height = frame.codedHeight;
-    }
-
-    // Transfer from temp to main canvas
-    const imageData = tempCtx.getImageData(0, 0, frame.codedWidth, frame.codedHeight);
-    mainCtx.putImageData(imageData, 0, 0);
-
-    console.log('VideoFrame rendered via OffscreenCanvas fallback');
-
-  } catch (error) {
-    console.error('OffscreenCanvas fallback failed:', error);
-  }
-}
-
-/**
- * Renders VideoFrame as image for ImageWebGL
- */
-function renderVideoFrameAsImage(frame) {
-  try {
-    console.log('Rendering RGB VideoFrame as image:', {
-      format: frame.format,
-      width: frame.codedWidth,
-      height: frame.codedHeight
-    });
-
-    // For RGB formats, use direct canvas rendering
-    renderVideoFrameToCanvas(frame);
-
-  } catch (error) {
-    console.error('Error rendering VideoFrame as image:', error);
-
-    // Fallback to direct canvas rendering
-    try {
-      renderVideoFrameToCanvas(frame);
-    } catch (fallbackError) {
-      console.error('Image rendering fallback failed:', fallbackError);
-    }
-  }
-}
-
-
 
     /**
-     * @type {VideoDecoder}
+     * @type {import("@yume-chan/scrcpy-decoder-webcodecs").WebCodecsVideoDecoder}
      */
 let decoder = null;
+let baseTimestamp = null;
+/**
+ * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
+ */
+let renderer = null;
 
   function a() {
       O = !0,
@@ -291,8 +94,11 @@ let decoder = null;
           "canvas" === P && C(J.timeStamp));
           break;
         case "videoDecoderInfo":
+            // console.log("videoDecoderInfo", c.data);
             const data = c.data;
             const k = data.timestamp
+            const nalUnits = data.units;
+
 
             // const combinedNALUs = combineNALUs(c.data.nalUnits);
             if (!decoder) {
@@ -301,58 +107,67 @@ let decoder = null;
                     return;
                 }
 
-                p.startRendering();
-                decoder = new VideoDecoder({
-                    output: (frame) => {
-                        p.draw(frame, frame.codedWidth, frame.codedHeight, 'h265', frame.frameType, frame.timestamp);
-                        // frame.close();
-                    },
-                    error: (err) => console.error('VideoDecoder error:', err)
+                if (!baseTimestamp) {
+                    // p.startRendering();
+                    baseTimestamp = k.timestamp * 1e3 + k.timestamp_usec;
+                }
+                decoder = new WebCodecsVideoDecoder({
+                    codec: ScrcpyVideoCodecId.H265,
+                    renderer: renderer
                 });
 
-                const nalUnits = data.units;
-                console.log("configure", {
-                    codec: data.codecType,
-                    hardwareAcceleration: 'prefer-hardware',
-                    codedWidth: data.width,
-                    codedHeight: data.height,
-                    description: getExtraData(
-                        nalUnits.find(n => n.type === 32).data, // VPS
-                        nalUnits.find(n => n.type === 33).data, // SPS
-                        nalUnits.find(n => n.type === 34).data  // PPS
-                    )
-                });
-                decoder.configure({
-                    codec: data.codecType,
-                    hardwareAcceleration: 'prefer-hardware',
-                    codedWidth: data.width,
-                    codedHeight: data.height,
-                    description: getExtraData(
-                        nalUnits.find(n => n.type === 32).data, // VPS
-                        nalUnits.find(n => n.type === 33).data, // SPS
-                        nalUnits.find(n => n.type === 34).data  // PPS
-                    )
-                });
-                // window.___baseTs = (k.timestamp) * 1e3 + (k.timestamp_usec);
-                // decoder.onoutput = (frame) => {
-                //     console.log('✅ Output frame', frame.timestamp);
-                //     frame.close();
-                //   };
+                // decoder = new H265Decoder(new VideoDecoder({
+                //     output: (frame) => {
+                //         renderer.draw(frame);
+                //         frame.close();
+                //         // try {
+                //         //     p.draw(frame, frame.codedWidth, frame.codedHeight, 'h265', frame.frameType, frame.timestamp);
+                //         //     // Frame is handled by StreamDrawer, which will close it appropriately
+                //         // } catch (drawError) {
+                //         //     console.error('Error drawing video frame:', drawError);
+                //         //     // Close frame to prevent memory leak if drawing failed
+                //         //     frame.close();
+                //         // }
+                //     },
+                //     error: (err) => {
+                //         console.error('VideoDecoder error:', err);
+                //         // Log additional decoder state information for debugging
+                //         if (decoder) {
+                //             console.error('Decoder state:', decoder.state);
+                //             console.error('Decode queue size:', decoder.decodeQueueSize);
+                //         }
+                //     }
+                // }), (width, height) => {
+                //     renderer.setSize(width, height);
+                // });
+                window.___writer = decoder.writable.getWriter();
+
+                // window.__keyframe = {
+                //     type: "configuration",
+                //     keyframe: data.frameType === "I",
+                //     data: data.rawStream,
+                // };
+                window.__lockPromise = window.___writer.write({
+                    type: "configuration",
+                    keyframe: data.frameType === "I",
+                    data: data.rawStream,
+                })
+            } else {
+                window.__lockPromise = window.__lockPromise.then(async () => {
+                    // if (window.__keyframe) {
+                    //     const keyframe = window.__keyframe;
+                    //     window.__keyframe = null;
+                    //     console.log("write keyframe", { ...keyframe, type: "packet" });
+                    //     // await window.___writer.write({ ...keyframe, type: "packet" });
+                    // }
+                    return window.___writer.write({
+                        type: "packet",
+                        keyframe: data.frameType === "I",
+                        data: data.rawStream,
+                    })
+                })
             }
 
-            if (data.rawStream[0] !== 0 || data.rawStream[1] !== 0 || data.rawStream[2] !== 0 || data.rawStream[3] !== 1) {
-                console.warn('Missing start code');
-              }
-
-            // const rawFrame = combineNALUs(data.units);
-            const chunk = new EncodedVideoChunk({
-                type: data.frameType === 'I' ? 'key' : 'delta',
-                timestamp: (1e3 * k.timestamp + k.timestamp_usec),
-                data: data.rawStream
-            });
-            // console.log("chunk", data);
-            decoder.decode(chunk);
-            // console.log("decoded");
             break;
       case "time":
           break;
@@ -632,11 +447,12 @@ let decoder = null;
           videoProcessWorker.onmessage = d,
           audioProcessWorker.onmessage = e;
           var g = f === !0 ? 500 : 15;
-          p = new StreamDrawer(Ab,this,S,g),
-          H = IvsDraw(),
-          p.setResizeCallback(s),
-          yb = document.getElementById("count-fps"),
-          xb = document.getElementById("span-fps")
+          p = new StreamDrawer(Ab,this,S,g);
+          renderer = createVideoFrameRenderer(S);
+          H = IvsDraw();
+          p.setResizeCallback(s);
+          yb = document.getElementById("count-fps");
+          xb = document.getElementById("span-fps");
       },
       async sendSdpInfo(a, b, c) {
           var sdpInfoMessage = {
@@ -1159,22 +975,16 @@ function sendWorkerMessageAndWaitForEvent(worker, message, eventName) {
   });
 }
 
-  function getExtraData(vps, sps, pps) {
-    const totalLength = 4 + vps.length + 4 + sps.length + 4 + pps.length;
-    const extra = new Uint8Array(totalLength);
-    let offset = 0;
+function createVideoFrameRenderer(canvas) {
+    // Uncomment following lines to enable InsertableStreamVideoFrameRenderer, see quirks above
+    // if (InsertableStreamVideoFrameRenderer.isSupported) {
+    //   const renderer = new InsertableStreamVideoFrameRenderer();
+    //   return { renderer, element: renderer.element };
+    // }
 
-    // VPS
-    extra.set([0, 0, 0, 1], offset); offset += 4;
-    extra.set(vps, offset); offset += vps.length;
+    if (WebGLVideoFrameRenderer.isSupported) {
+      return new WebGLVideoFrameRenderer(canvas);
+    }
 
-    // SPS
-    extra.set([0, 0, 0, 1], offset); offset += 4;
-    extra.set(sps, offset); offset += sps.length;
-
-    // PPS
-    extra.set([0, 0, 0, 1], offset); offset += 4;
-    extra.set(pps, offset);
-
-    return extra.buffer;
+    return new BitmapVideoFrameRenderer(canvas);
   }
