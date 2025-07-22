@@ -139,7 +139,8 @@ function RtpReturnCallback(a) {
     sendMessage("setVideoTagMode", a.decodeMode))),
     null != a.decodeStart && (sendMessage("DecodeStart", a.decodeStart),
     videoEncoding.setMode(a.decodeStart.decodeMode)),
-    null !== b && "undefined" != typeof b)
+    null !== b && "undefined" != typeof b) {
+
         if (void 0 !== b.frameData && null !== b.frameData && "canvas" === decodeMode) {
             b.frameData.firstFrame === !0 && sendMessage("firstFrame", b.frameData.firstFrame);
             var d = {
@@ -166,8 +167,14 @@ function RtpReturnCallback(a) {
             sendMessage("videoTimeStamp", b.timeStamp),
             b.frameData.length > 0 && (sendMessage("mediaSample", b.mediaSample),
             sendMessage("videoRender", b.frameData))
-        } else
-            sendMessage("drop", a.decodedData);
+        } else {
+          sendMessage("drop", a.decodedData);
+        }
+      } else {
+        if (a.nalUnits) {
+          sendMessage("videoDecoderInfo", a.nalUnits);
+        }
+      }
     null != a.resolution && sendMessage("MSEResolutionChanged", a.resolution),
     null != a.ivsDraw && sendMessage("ivsDraw", a)
 }

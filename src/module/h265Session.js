@@ -356,12 +356,35 @@ export function H265Session(ffmpeg) {
                         E += 2;
                 else
                     E += 1;
-            for (var F, G = "P", E = 0; E < D.length; E++)
-                switch (w = b.subarray(D[E] + 3, D[E + 1]),
-                F = b[D[E] + 3] >> 1 & 63) {
+                        // Collect all NAL units for this frame
+            var nalUnits = [];
+
+            for (var F, G = "P", E = 0; E < D.length; E++) {
+                w = b.subarray(D[E] + 3, D[E + 1]);
+                F = b[D[E] + 3] >> 1 & 63;
+
+                // Create NAL unit data structure
+                var nalUnit = {
+                    type: F,
+                    typeHex: F.toString(16),
+                    data: new Uint8Array(w), // Create independent copy for transfer
+                    size: w.length
+                };
+
+                nalUnits.push(nalUnit);
+
+                // Console log NAL unit info
+                // console.log(`NAL Unit ${E}:`, {
+                //     type: F,
+                //     typeHex: F.toString(16),
+                //     size: w.length,
+                //     data: Array.from(w.slice(0, 16)), // First 16 bytes for debug
+                // });
+
+                switch (F) {
                 default:
                     break;
-                case 33:
+                case 33: // SPS
                     G = "I",
                     i.parse2(w);
                     var H = q;
@@ -377,7 +400,21 @@ export function H265Session(ffmpeg) {
                     x.decodeStart = s,
                     x.decodeStart.decodeMode = "canvas",
                     x.decodeStart.encodeMode = "h265"))
+                    break;
+                case 32: // VPS
+                case 34: // PPS
+                    // Important parameter sets
+                    break;
+                case 19: // IDR_W_RADL
+                case 20: // IDR_N_LP
+                    G = "I"; // IDR frames are I-frames
+                    break;
+                case 1:  // TRAIL_R
+                case 2:  // TRAIL_N
+                    G = "P"; // P or B frames
+                    break;
                 }
+            }
             var I = 1e3 * k.timestamp + k.timestamp_usec;
             0 == this.firstDiffTime ? (t = 0,
             this.firstDiffTime = Date.now() - I,
@@ -390,26 +427,47 @@ export function H265Session(ffmpeg) {
             },
             this.rtpReturnCallback(x))),
             v = I,
-            j.frameData = null,
-            g !== h && (this.decoder.free(),
-            g = h,
-            this.decoder.setOutputSize(g)),
-            (o !== !0 || f !== !0) && (j.frameData = this.decoder.decode(b),
-            j.frameData.frameType = G),
+            j.frameData = null;
+
+            // Instead of FFmpeg decoding, send NAL units back to main thread for VideoDecoder API
+            j.frameData = null; // No decoded frame data from worker
             j.timeStamp = null,
             e = 0,
             k = null === k.timestamp ? this.getTimeStamp() : k,
             j.timeStamp = k,
+
+            // Prepare NAL units for main thread processing
+            x.nalUnits = {
+                units: nalUnits,
+                frameType: G,
+                width: l,
+                height: m,
+                codecType: "hev1.1.6.L93.B0", //"hvc1.1.6.L93.B0",
+                timestamp: k,
+                rawStream: new Uint8Array(b) // Full stream data as backup
+            };
+
+            // Optional: Keep backup data for fallback
             o && (x.backupData = {
-                stream: b,
+                stream: new Uint8Array(b), // Create copy for transfer
                 frameType: G,
                 width: l,
                 height: m,
                 codecType: "h265"
             },
-            null !== k.timestamp && "undefined" != typeof k.timestamp ? x.backupData.timestamp_usec = k.timestamp_usec : x.backupData.timestamp = (c / 90).toFixed(0)),
-            x.decodedData = j,
-            this.rtpReturnCallback(x)
+            null !== k.timestamp && "undefined" != typeof k.timestamp ? x.backupData.timestamp_usec = k.timestamp_usec : x.backupData.timestamp = (c / 90).toFixed(0));
+
+            // Send NAL units back to main thread
+            this.rtpReturnCallback(x);
+
+            // console.log('Sending NAL units to main thread:', {
+            //     nalCount: nalUnits.length,
+            //     frameType: G,
+            //     width: l,
+            //     height: m,
+            //     timestamp: k
+            // });
+
         },
         findIFrame: function() {
             if (null !== this.videoBufferList) {
