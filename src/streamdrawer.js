@@ -256,9 +256,11 @@ function StreamDrawer(a, b, c, d) {
         if (0 == R.size && O === !0)
             return k.fileOverCallback(),
             void f.prototype.stopRendering();
-        if (F = R.dequeue(),
-        null !== F && null !== F.buffer && ("mjpeg" === F.codecType || F.buffer.length > 0)) {
-            if (("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType) && (s = "h264" === F.codecType || "h265" === F.codecType ? "YUVWebGL" : "ImageWebGL",
+
+        F = R.dequeue();
+        const isVideoFrame = window.VideoFrame && F && F.buffer instanceof VideoFrame;
+        if (null !== F && null !== F.buffer && ("mjpeg" === F.codecType || isVideoFrame || F.buffer.length > 0)) {
+            ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType) && (s = ("h264" === F.codecType || "h265" === F.codecType) && !isVideoFrame ? "YUVWebGL" : "ImageWebGL",
             S(F.width, F.height),
             ("undefined" == q || null == q || 0 == q) && w("PlayStart"),
             "mjpeg" !== F.codecType && g(F.option.realWidth, F.option.realHeight),
@@ -266,21 +268,29 @@ function StreamDrawer(a, b, c, d) {
             r = F.height,
             u = F.codecType),
             z = F.timeStamp,
-            k.timeStamp(z),
-            "undefined" != typeof p)
-                return p.drawCanvas(F.buffer, F.option),
+            k.timeStamp(z);
+
+            if ("undefined" != typeof p) {
+                p.drawCanvas(F.buffer, F.option),
                 o.updatedCanvas = !0,
                 x(z),
                 Math.abs(z.timestamp - A) > P && k.waitingCallback(!1),
                 A = z.timestamp,
                 H && (H = !1,
-                h(o.toDataURL(), G)),
-                "mjpeg" === F.codecType ? E.free(F.buffer) : (delete F.buffer,
-                F.buffer = null),
+                h(o.toDataURL(), G));
+                if ("mjpeg" === F.codecType) {
+                    E.free(F.buffer);
+                } else if (isVideoFrame) {
+                    F.buffer.close();
+                } else {
+                    delete F.buffer;
+                    F.buffer = null;
+                }
                 F.previous = null,
                 F.next = null,
-                F = null,
-                !0;
+                F = null;
+                return !0;
+            }
             debug.log("drawer is undefined in StreamDrawer!")
         }
         return !1
@@ -321,20 +331,47 @@ function StreamDrawer(a, b, c, d) {
             ,
             g.setAttribute("src", "data:image/jpeg;base64," + base64ArrayBuffer(a))
         },
-        draw: function(a, b, c, d, e, f, g) {
-            return m === !1 ? (("undefined" == typeof q || "undefined" == typeof r || q !== b || r !== c || u !== d) && (s = "h264" === d || "h265" === d ? "YUVWebGL" : "ImageWebGL",
-            S(b, c),
-            q = b,
-            r = c,
-            u = d),
-            z = f,
-            null !== z && k.timeStamp(z),
-            "undefined" != typeof p ? (p.drawCanvas(a),
-            o.updatedCanvas = !0,
-            H && (H = !1,
-            h(o.toDataURL(), G)),
-            !0) : (debug.log("drawer is undefined in StreamDrawer!"),
-            !1)) : void (null !== R && R.enqueue(a, b, c, d, e, f, g))
+        draw(frameBuffer, width, height, codecType, frameType, timestamp, options) {
+            // If not using buffered rendering, draw immediately
+            if (m === false) {
+                // Check if canvas dimensions or codec type changed, reinitialize if needed
+                if ((typeof q === "undefined" || typeof r === "undefined" ||
+                     q !== width || r !== height || u !== codecType)) {
+
+                    // Set drawing strategy based on codec type
+                    s = (codecType === "h264" || codecType === "h265") ? "YUVWebGL" : "ImageWebGL";
+                    S(width, height);
+                    q = width;
+                    r = height;
+                    u = codecType;
+                }
+
+                // Update current frame timestamp
+                z = timestamp;
+                if (z !== null) {
+                    k.timeStamp(z);
+                }
+
+                // Draw the frame if drawer is available
+                if (typeof p !== "undefined") {
+                    p.drawCanvas(frameBuffer);
+                    o.updatedCanvas = true;
+
+                    // Handle screenshot capture if requested
+                    if (H && (H = false, h(o.toDataURL(), G)));
+
+                    return true;
+                } else {
+                    debug.log("drawer is undefined in StreamDrawer!");
+                    return false;
+                }
+            } else {
+                // Use buffered rendering - enqueue the frame for later processing
+                if (R !== null) {
+                    R.enqueue(frameBuffer, width, height, codecType, frameType, timestamp, options);
+                }
+                return;
+            }
         },
         capture: function(a) {
             G = a,
