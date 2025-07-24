@@ -27,14 +27,14 @@ Module['ready'] = new Promise((resolve, reject) => {
   readyPromiseResolve = resolve;
   readyPromiseReject = reject;
 });
-["_abort","_malloc","_free","_OpenDecoder","_FrameAlloc","_FrameFree","_DecodeFrame","_CloseDecoder","_getWidth","_getHeight","_getYLength","_getULength","_getVLength","_fflush","onRuntimeInitialized"].forEach((prop) => {
-  if (!Object.getOwnPropertyDescriptor(Module['ready'], prop)) {
-    Object.defineProperty(Module['ready'], prop, {
-      get: () => abort('You are getting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
-      set: () => abort('You are setting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
-    });
-  }
-});
+// ["_abort","_malloc","_free","_OpenDecoder","_FrameAlloc","_FrameFree","_DecodeFrame","_CloseDecoder","_getWidth","_getHeight","_getYLength","_getULength","_getVLength","_fflush","onRuntimeInitialized"].forEach((prop) => {
+//   if (!Object.getOwnPropertyDescriptor(Module['ready'], prop)) {
+//     Object.defineProperty(Module['ready'], prop, {
+//       get: () => abort('You are getting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
+//       set: () => abort('You are setting ' + prop + ' on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js'),
+//     });
+//   }
+// });
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
@@ -156,23 +156,23 @@ function reset() {
  *
  * Thus, we can successfully extract custom URLs using _locateFile funciton.
  */
-function _locateFile(path, prefix) {
-  const mainScriptUrlOrBlob = Module["mainScriptUrlOrBlob"];
-  if (mainScriptUrlOrBlob) {
-    const { wasmURL, workerURL } = JSON.parse(
-      atob(mainScriptUrlOrBlob.slice(mainScriptUrlOrBlob.lastIndexOf("#") + 1))
-    );
-    if (path.endsWith(".wasm")) return wasmURL;
-    // if (path.endsWith(".worker.js")) return workerURL;
-  }
-  return prefix + path;
-}
+// function _locateFile(path, prefix) {
+//   const mainScriptUrlOrBlob = Module["mainScriptUrlOrBlob"];
+//   if (mainScriptUrlOrBlob) {
+//     const { wasmURL, workerURL } = JSON.parse(
+//       atob(mainScriptUrlOrBlob.slice(mainScriptUrlOrBlob.lastIndexOf("#") + 1))
+//     );
+//     if (path.endsWith(".wasm")) return wasmURL;
+//     // if (path.endsWith(".worker.js")) return workerURL;
+//   }
+//   return prefix + path;
+// }
 
 Module["stringToPtr"] = stringToPtr;
 Module["stringsToPtr"] = stringsToPtr;
 Module["print"] = print;
 Module["printErr"] = printErr;
-Module["locateFile"] = _locateFile;
+// Module["locateFile"] = _locateFile;
 
 // Module["exec"] = exec;
 // Module["ffprobe"] = ffprobe;

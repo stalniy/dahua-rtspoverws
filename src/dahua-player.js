@@ -428,14 +428,20 @@ class DahuaPlayer extends HTMLElement {
     const loadingEl = this.shadowRoot.querySelector('#loading');
     const errorEl = this.shadowRoot.querySelector('#error');
 
-    loadingEl.style.display = 'none';
-    errorEl.style.display = 'block';
-    errorEl.textContent = message;
+    if (loadingEl) {
+      loadingEl.style.display = 'none';
+    }
+    if (errorEl) {
+      errorEl.style.display = 'block';
+      errorEl.textContent = message;
+    }
   }
 
   #showControls() {
     const controlsOverlay = this.shadowRoot.querySelector('#controls-overlay');
-    controlsOverlay.classList.add('visible');
+    if (controlsOverlay) {
+      controlsOverlay.classList.add('visible');
+    }
 
     if (this.#controlsTimeout) {
       clearTimeout(this.#controlsTimeout);
@@ -448,6 +454,7 @@ class DahuaPlayer extends HTMLElement {
 
   #hideControls() {
     const controlsOverlay = this.shadowRoot.querySelector('#controls-overlay');
+    if (!controlsOverlay) return;
     controlsOverlay.classList.remove('visible');
   }
 
