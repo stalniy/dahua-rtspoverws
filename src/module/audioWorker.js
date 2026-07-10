@@ -6,6 +6,8 @@ addEventListener("message", receiveMessage, !1);
 var audioRtpSessionsArray = []
   , sdpInfo = null
   , rtpSession = null
+    , audioInitToken = 0
+    , audioSessionReady = !1
   , isBackupCommand = !1;
 
 postMessage({ type: "WorkerReady" });
@@ -14,20 +16,36 @@ function receiveMessage(a) {
     var b = a.data;
     switch (b.type) {
     case "sdpInfo":
+        audioInitToken += 1;
+        var c = audioInitToken;
+        audioSessionReady = !1;
+        audioRtpSessionsArray = [];
+        rtpSession = null;
         sdpInfo = b.data.sdpInfo;
-        var c = b.data.aacCodecInfo;
-        setAudioRtpSession(sdpInfo, c).then(() => {
+        var d = b.data.aacCodecInfo;
+        setAudioRtpSession(sdpInfo, d).then((a) => {
+            if (c !== audioInitToken)
+                return;
+            audioSessionReady = !0;
             debug.log("audio sdpInfo processed");
-            postMessage({ type: "sdpInfoProcessed", hasAudioSession: !!rtpSession });
+            postMessage({ type: "sdpInfoProcessed", hasAudioSession: !!a });
+        }).catch((a) => {
+            if (c !== audioInitToken)
+                return;
+            audioSessionReady = !0;
+            debug.error("audio sdpInfo setup failed", a);
+            postMessage({ type: "sdpInfoProcessed", hasAudioSession: !1 });
         });
         break;
     case "MediaData":
-        var d = b.data.rtspInterleave[1];
-        if ("undefined" != typeof audioRtpSessionsArray[d]) {
-            var e = b.data
-              , f = audioRtpSessionsArray[d].parseRTPData(e.rtspInterleave, e.payload, isBackupCommand, b.info);
-            null !== f && "undefined" != typeof f && null !== f.streamData && "undefined" != typeof f.streamData && (f.streamData = null),
-            sendMessage("render", f)
+        if (!audioSessionReady)
+            break;
+        var e = b.data.rtspInterleave[1];
+        if ("undefined" != typeof audioRtpSessionsArray[e]) {
+            var f = b.data
+              , g = audioRtpSessionsArray[e].parseRTPData(f.rtspInterleave, f.payload, isBackupCommand, b.info);
+            null !== g && "undefined" != typeof g && null !== g.streamData && "undefined" != typeof g.streamData && (g.streamData = null),
+            sendMessage("render", g)
         }
     }
 }
@@ -62,8 +80,9 @@ async function setAudioRtpSession(sdpInfo, b) {
             var f = c[d].RtpInterlevedID;
             if (audioRtpSessionsArray[f] = rtpSession,
             null != rtpSession)
-                return
+                return !0
         }
+            return !1
 }
 function sendMessage(a, b) {
     var c = {
