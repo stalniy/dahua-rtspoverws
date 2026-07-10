@@ -12,7 +12,11 @@ export default defineConfig(({ command, mode }) => {
       // Explicitly set development entry point (optional)
       server: {
         open: true,
-        host: '0.0.0.0'
+        host: '0.0.0.0',
+        proxy: {
+          // Shorthand for simple targets
+          '/api/auth': env.VITE_AUTH_API_URL,
+        }
       }
     }),
     build: {
@@ -38,7 +42,8 @@ export default defineConfig(({ command, mode }) => {
     define: {
       'process.env.CAMERA_IP': JSON.stringify(env.CAMERA_IP),
       'process.env.DEBUG': env.DEBUG === 'true',
-      'process.env.FFMPEG_ENV': JSON.stringify('webworker')
+      'process.env.FFMPEG_ENV': JSON.stringify('webworker'),
+      'import.meta.env.VITE_AUTH_API_URL': JSON.stringify('/api/auth'),
     },
     worker: {
       format: 'es'

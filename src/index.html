@@ -262,7 +262,7 @@
       updatePlayer();
 
       dahuaPlayer.addEventListener('authenticate', (event) => {
-        fetch(`http://localhost:12345`, {
+        fetch(import.meta.env.VITE_AUTH_API_URL, {
           method: 'POST',
           body: JSON.stringify(event.detail.authDetails)
         })
