@@ -109,8 +109,8 @@ export function AudioPlayerAAC() {
             r = 0
         },
         bufferAudio: function(b, c) {
-            var d = c - t;
-            if ((d > m || 0 > d) && (s = new Uint8Array,
+            var d = 0 === t ? 0 : c - t;
+            if (0 !== t && (d > m || 0 > d) && (s = new Uint8Array,
             x = new Array,
             w = !0),
             w && (x.push(y),

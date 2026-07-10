@@ -152,6 +152,9 @@ let renderer = null;
             const data = c.data;
             const nextCodecType = webCodecsDecoder.codecTypeName(data.codecType);
 
+            // Keep audio buffering state in sync in WebCodecs canvas mode.
+            k(0, "currentTime");
+
             // Keep parity with the old canvas path: IVS and audio sync depend on J.timeStamp.
             J = {
                 width: data.width,
