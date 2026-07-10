@@ -1,299 +1,528 @@
 "use strict";
 import { debug } from './debug';
 
-export function AudioPlayerAAC() {
-    function a(a, b) {
-        var c = new Uint8Array(a.byteLength + b.byteLength);
-        return c.set(new Uint8Array(a), 0),
-        c.set(new Uint8Array(b), a.byteLength),
-        c
+function concatUint8Arrays(existingBytes, nextBytes) {
+    var combinedBytes = new Uint8Array(existingBytes.byteLength + nextBytes.byteLength);
+
+    combinedBytes.set(new Uint8Array(existingBytes), 0);
+    combinedBytes.set(new Uint8Array(nextBytes), existingBytes.byteLength);
+
+    return combinedBytes;
+}
+
+export class AudioPlayerAAC {
+    constructor() {
+        this.maxTimestampGap = 200;
+        this.mimeType = null;
+        this.mediaSource = null;
+        this.audioElement = null;
+        this.sourceBuffer = null;
+        this.volume = 0;
+        this.pendingBytes = new Uint8Array();
+        this.lastTimestamp = 0;
+        this.initialVideoTimestamp = 0;
+        this.bufferingOffset = null;
+        this.isRecoveringFromGap = false;
+        this.recoveryByteOffsets = null;
+        this.recoveryByteLength = 0;
+
+        this.handleAudioError = this.handleAudioError.bind(this);
+        this.handleSourceOpen = this.handleSourceOpen.bind(this);
+        this.handleSourceUpdateEnd = this.handleSourceUpdateEnd.bind(this);
+        this.handleSourceClose = this.handleSourceClose.bind(this);
+        this.handleSourceEnded = this.handleSourceEnded.bind(this);
+        this.handleSourceError = this.handleSourceError.bind(this);
+        this.handleSourceAbort = this.handleSourceAbort.bind(this);
     }
-    function b() {
-        n = "audio/aac",
-        p = document.createElement("audio"),
-        document.body.appendChild(p),
-        p.addEventListener("error", d)
+
+    createAudioElement() {
+        this.mimeType = 'audio/aac';
+        this.audioElement = document.createElement('audio');
+        document.body.appendChild(this.audioElement);
+        this.audioElement.addEventListener('error', this.handleAudioError);
     }
-    function c() {
-        var a = !1;
-        return window.MediaSource ? window.MediaSource.isTypeSupported(n) ? (o = new MediaSource,
-        o.addEventListener("sourceopen", e),
-        o.addEventListener("sourceclose", g),
-        o.addEventListener("sourceended", h),
-        o.addEventListener("error", i),
-        o.addEventListener("abort", j),
-        a = !0) : debug.error("Unsupported MIME type or codec: ", n) : debug.error("MediaSource API is not supported!"),
-        a
+
+    createMediaSource() {
+        if (!window.MediaSource) {
+            debug.error('MediaSource API is not supported!');
+            return false;
+        }
+
+        if (!window.MediaSource.isTypeSupported(this.mimeType)) {
+            debug.error('Unsupported MIME type or codec: ', this.mimeType);
+            return false;
+        }
+
+        this.mediaSource = new MediaSource();
+        this.mediaSource.addEventListener('sourceopen', this.handleSourceOpen);
+        this.mediaSource.addEventListener('sourceclose', this.handleSourceClose);
+        this.mediaSource.addEventListener('sourceended', this.handleSourceEnded);
+        this.mediaSource.addEventListener('error', this.handleSourceError);
+        this.mediaSource.addEventListener('abort', this.handleSourceAbort);
+
+        return true;
     }
-    function d(a) {
-        switch (debug.error(a),
-        a.target.error.code) {
-        case a.target.error.MEDIA_ERR_ABORTED:
-            debug.error("audio tag error : You aborted the media playback.");
+
+    handleAudioError(event) {
+        debug.error(event);
+
+        switch (event.target.error.code) {
+        case event.target.error.MEDIA_ERR_ABORTED:
+            debug.error('audio tag error : You aborted the media playback.');
             break;
-        case a.target.error.MEDIA_ERR_NETWORK:
-            debug.error("audio tag error : A network error caused the media download to fail.");
+        case event.target.error.MEDIA_ERR_NETWORK:
+            debug.error('audio tag error : A network error caused the media download to fail.');
             break;
-        case a.target.error.MEDIA_ERR_DECODE:
-            debug.error("audio tag error : The media playback was aborted due to a corruption problem or because the media used features your browser did not support.");
+        case event.target.error.MEDIA_ERR_DECODE:
+            debug.error('audio tag error : The media playback was aborted due to a corruption problem or because the media used features your browser did not support.');
             break;
-        case a.target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-            debug.error("audio tag error : The media could not be loaded, either because the server or network failed or because the format is not supported.");
+        case event.target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            debug.error('audio tag error : The media could not be loaded, either because the server or network failed or because the format is not supported.');
             break;
         default:
-            debug.error("audio tag error : An unknown media error occurred.")
+            debug.error('audio tag error : An unknown media error occurred.');
         }
     }
-    function e() {
-        if (debug.info("sourceopened"),
-        null === q)
-            try {
-                q = o.addSourceBuffer(n),
-                q.addEventListener("updateend", f)
-            } catch (a) {
-                return void debug.error("Exception calling addSourceBuffer : " + a)
+
+    handleSourceOpen() {
+        debug.info('sourceopened');
+
+        if (this.sourceBuffer !== null) {
+            return;
+        }
+
+        try {
+            this.sourceBuffer = this.mediaSource.addSourceBuffer(this.mimeType);
+            this.sourceBuffer.addEventListener('updateend', this.handleSourceUpdateEnd);
+        } catch (error) {
+            debug.error('Exception calling addSourceBuffer : ' + error);
+        }
+    }
+
+    handleSourceUpdateEnd() {
+        if (this.audioElement && this.audioElement.paused) {
+            this.audioElement.play().catch(() => {});
+        }
+    }
+
+    handleSourceClose() {
+        debug.info('sourceclose');
+    }
+
+    handleSourceEnded() {
+        debug.info('sourceended');
+    }
+
+    handleSourceError() {
+        debug.info('error');
+    }
+
+    handleSourceAbort() {
+        debug.info('abort');
+    }
+
+    detachMediaSourceListeners() {
+        if (this.mediaSource) {
+            this.mediaSource.removeEventListener('sourceopen', this.handleSourceOpen);
+            this.mediaSource.removeEventListener('sourceclose', this.handleSourceClose);
+            this.mediaSource.removeEventListener('sourceended', this.handleSourceEnded);
+            this.mediaSource.removeEventListener('error', this.handleSourceError);
+            this.mediaSource.removeEventListener('abort', this.handleSourceAbort);
+        }
+
+        if (this.sourceBuffer) {
+            this.sourceBuffer.removeEventListener('updateend', this.handleSourceUpdateEnd);
+        }
+
+        if (this.audioElement) {
+            this.audioElement.removeEventListener('error', this.handleAudioError);
+        }
+    }
+
+    flushPendingBytes() {
+        if (!this.sourceBuffer || this.isRecoveringFromGap || this.sourceBuffer.updating) {
+            return;
+        }
+
+        try {
+            if (this.recoveryByteOffsets !== null) {
+                this.appendRecoveredBytes();
+            } else {
+                this.sourceBuffer.appendBuffer(this.pendingBytes);
             }
+
+            this.pendingBytes = new Uint8Array();
+            this.recoveryByteOffsets = null;
+            this.recoveryByteLength = 0;
+        } catch (error) {}
     }
-    function f() {
-        p.paused && p.play()
+
+    appendRecoveredBytes() {
+        if (this.bufferingOffset === null || !this.recoveryByteOffsets) {
+            return;
+        }
+
+        var recoveredChunkCount = parseInt(this.recoveryByteOffsets.length / 16, 10);
+        var playbackOffset = parseInt(this.bufferingOffset, 10);
+
+        if (recoveredChunkCount - playbackOffset < 2) {
+            return;
+        }
+
+        playbackOffset += 1;
+        this.recoveryByteLength = parseInt(16 * playbackOffset, 10);
+
+        if (this.recoveryByteLength < this.recoveryByteOffsets.length) {
+            this.sourceBuffer.appendBuffer(this.pendingBytes.subarray(this.recoveryByteOffsets[this.recoveryByteLength], this.pendingBytes.length));
+
+            if (this.sourceBuffer.buffered.length > 0 && this.audioElement) {
+                this.audioElement.currentTime = this.sourceBuffer.buffered.end(0);
+            }
+
+            this.bufferingOffset = playbackOffset;
+            return;
+        }
+
+        if (this.sourceBuffer.buffered.length > 0 && this.audioElement) {
+            this.audioElement.currentTime = this.sourceBuffer.buffered.end(0) - 0.3;
+        }
+
+        this.bufferingOffset = playbackOffset;
     }
-    function g() {
-        debug.info("sourceclose")
+
+    audioInit(initialVolume) {
+        this.createAudioElement();
+
+        var didCreateMediaSource = this.createMediaSource();
+
+        if (didCreateMediaSource && this.audioElement !== null) {
+            this.audioElement.src = window.URL.createObjectURL(this.mediaSource);
+            this.controlVolumn(initialVolume);
+            this.audioElement.play().catch(() => {});
+        }
+
+        return didCreateMediaSource;
     }
-    function h() {
-        debug.info("sourceended")
+
+    play() {
+        this.controlVolumn(this.volume);
     }
-    function i() {
-        debug.info("error")
+
+    stop() {
+        if (this.audioElement) {
+            this.audioElement.volume = 0;
+        }
+
+        this.volume = 0;
     }
-    function j() {
-        debug.info("abort")
+
+    bufferAudio(audioBytes, timestamp) {
+        var timestampDelta = this.lastTimestamp === 0 ? 0 : timestamp - this.lastTimestamp;
+
+        if (this.lastTimestamp !== 0 && (timestampDelta > this.maxTimestampGap || timestampDelta < 0)) {
+            this.pendingBytes = new Uint8Array();
+            this.recoveryByteOffsets = [];
+            this.isRecoveringFromGap = true;
+            this.recoveryByteLength = 0;
+        }
+
+        if (this.isRecoveringFromGap && this.recoveryByteOffsets) {
+            this.recoveryByteOffsets.push(this.recoveryByteLength);
+            this.recoveryByteLength += audioBytes.length;
+        }
+
+        this.lastTimestamp = timestamp;
+        this.pendingBytes = concatUint8Arrays(this.pendingBytes, audioBytes);
+        this.flushPendingBytes();
     }
-    function k() {
-        o.removeEventListener("sourceopen", e),
-        o.removeEventListener("sourceclose", g),
-        o.removeEventListener("sourceended", h),
-        o.removeEventListener("error", i),
-        o.removeEventListener("abort", j),
-        q.removeEventListener("updateend", f),
-        p.removeEventListener("error", d)
+
+    controlVolumn(nextVolume) {
+        this.volume = nextVolume;
+
+        if (this.audioElement !== null) {
+            this.audioElement.volume = nextVolume <= 0 ? 0 : nextVolume >= 1 ? 1 : nextVolume;
+
+            if (nextVolume > 0 && this.audioElement.paused) {
+                this.audioElement.play().catch(() => {});
+            }
+        }
     }
-    function l() {}
-    var m = 200
-      , n = null
-      , o = null
-      , p = null
-      , q = null
-      , r = 0
-      , s = new Uint8Array
-      , t = 0
-      , u = 0
-      , v = null
-      , w = !1
-      , x = null
-      , y = 0;
-    return l.prototype = {
-        audioInit: function(a) {
-            b();
-            var d = c();
-            return d && null !== p && (p.src = window.URL.createObjectURL(o),
-            this.controlVolumn(a),
-            p.play()),
-            d
-        },
-        play: function() {
-            this.controlVolumn(r)
-        },
-        stop: function() {
-            p.volume = 0,
-            r = 0
-        },
-        bufferAudio: function(b, c) {
-            var d = 0 === t ? 0 : c - t;
-            if (0 !== t && (d > m || 0 > d) && (s = new Uint8Array,
-            x = new Array,
-            w = !0),
-            w && (x.push(y),
-            y += b.length),
-            t = c,
-            s = a(s, b),
-            null !== q && !w && !q.updating)
-                try {
-                    null !== x ? null !== v && (parseInt(x.length / 16) - parseInt(v) >= 2 && (v += 1),
-                    y = parseInt(16 * v, 10),
-                    y < x.length ? (q.appendBuffer(s.subarray(x[y], s.length)),
-                    q.buffered.length > 0 && (p.currentTime = q.buffered.end(0))) : q.buffered.length > 0 && (p.currentTime = q.buffered.end(0) - .3)) : q.appendBuffer(s),
-                    s = new Uint8Array,
-                    x = null,
-                    y = 0
-                } catch (e) {}
-        },
-        controlVolumn: function(a) {
-            r = a,
-            null !== p && (p.volume = 0 >= a ? 0 : a >= 1 ? 1 : a,
-            a > 0 && p.paused && p.play().catch(() => {}),
-            r = a)
-        },
-        getVolume: function() {
-            return r
-        },
-        terminate: function() {
-            o && (k(),
-            "open" === o.readyState && (o.removeSourceBuffer(q),
-            o.endOfStream())),
-            p && p.parentElement.removeChild(p),
-            q = null,
-            o = null,
-            p = null
-        },
-        setBufferingFlag: function(a, b) {
-            "init" === b ? u = a : w && (0 === a || "undefined" == typeof a || null === a ? v = null : (v = a - u,
-            u = 0),
-            w = !1)
-        },
-        getBufferingFlag: function() {
-            return w
-        },
-        setInitVideoTimeStamp: function(a) {
-            u = a
-        },
-        getInitVideoTimeStamp: function() {
-            return u
-        },
-        setSamplingRate: function() {}
-    },
-    new l
+
+    getVolume() {
+        return this.volume;
+    }
+
+    terminate() {
+        if (this.mediaSource) {
+            this.detachMediaSourceListeners();
+
+            if (this.mediaSource.readyState === 'open' && this.sourceBuffer) {
+                this.mediaSource.removeSourceBuffer(this.sourceBuffer);
+                this.mediaSource.endOfStream();
+            }
+        }
+
+        if (this.audioElement && this.audioElement.parentElement) {
+            this.audioElement.parentElement.removeChild(this.audioElement);
+        }
+
+        this.sourceBuffer = null;
+        this.mediaSource = null;
+        this.audioElement = null;
+    }
+
+    setBufferingFlag(bufferingFlag, phase) {
+        if (phase === 'init') {
+            this.initialVideoTimestamp = bufferingFlag;
+            return;
+        }
+
+        if (!this.isRecoveringFromGap) {
+            return;
+        }
+
+        if (bufferingFlag === 0 || typeof bufferingFlag === 'undefined' || bufferingFlag === null) {
+            this.bufferingOffset = null;
+        } else {
+            this.bufferingOffset = bufferingFlag - this.initialVideoTimestamp;
+            this.initialVideoTimestamp = 0;
+        }
+
+        this.isRecoveringFromGap = false;
+    }
+
+    getBufferingFlag() {
+        return this.isRecoveringFromGap;
+    }
+
+    setInitVideoTimeStamp(timestamp) {
+        this.initialVideoTimestamp = timestamp;
+    }
+
+    getInitVideoTimeStamp() {
+        return this.initialVideoTimestamp;
+    }
+
+    setSamplingRate() {}
 }
-export function AudioPlayerGxx() {
-    function a(a, c) {
-        var d = c - o;
-        if ((d > e || 0 > d) && (m = 0,
-        t = 0,
-        r = !0,
-        null !== u && u.stop()),
-        m - h.currentTime < 0 && (m = 0),
-        o = c,
-        s = b(s, a, t),
-        t += a.length,
-        !r) {
-            var g = 0;
-            if (t / a.length > 1 && (null !== q && (g = q * f),
-            g >= t || null === q))
-                return void (t = 0);
-            var i = null;
-            i = h.createBuffer(1, t - g, l.samplingRate),
-            i.getChannelData(0).set(s.subarray(g, t)),
-            t = 0,
-            u = h.createBufferSource(),
-            u.buffer = i,
-            u.connect(j),
-            m || (m = h.currentTime + .1),
-            u.start(m),
-            m += i.duration
+
+export class AudioPlayerGxx {
+    constructor() {
+        this.sampleBufferPadding = 80000;
+        this.maxTimestampGap = 200;
+        this.codecClockRate = 8000;
+        this.volumeScale = 1;
+        this.audioContext = null;
+        this.gainNode = null;
+        this.filterNode = null;
+        this.volume = 0;
+        this.audioFormat = {
+            type: 'G.711',
+            samplingRate: this.codecClockRate,
+            bitrate: '8000'
+        };
+        this.nextPlaybackTime = 0;
+        this.isAudioContextRunning = false;
+        this.lastTimestamp = 0;
+        this.initialVideoTimestamp = 0;
+        this.bufferingOffset = null;
+        this.isRecoveringFromGap = false;
+        this.sampleBuffer = new Float32Array(this.sampleBufferPadding);
+        this.sampleBufferLength = 0;
+        this.currentSource = null;
+    }
+
+    appendSamples(existingSamples, nextSamples, writeOffset) {
+        var resizedSamples = existingSamples;
+
+        if (writeOffset + nextSamples.length >= resizedSamples.length) {
+            resizedSamples = new Float32Array(resizedSamples.length + this.sampleBufferPadding);
+            resizedSamples.set(existingSamples, 0);
         }
+
+        resizedSamples.set(nextSamples, writeOffset);
+
+        return resizedSamples;
     }
-    function b(a, b, c) {
-        var d = 8e4
-          , e = a;
-        return c + b.length >= e.length && (e = new Float32Array(e.length + d),
-        e.set(e, 0)),
-        e.set(b, c),
-        e
+
+    queueAudio(audioSamples, timestamp) {
+        var timestampDelta = timestamp - this.lastTimestamp;
+
+        if (timestampDelta > this.maxTimestampGap || timestampDelta < 0) {
+            this.nextPlaybackTime = 0;
+            this.sampleBufferLength = 0;
+            this.isRecoveringFromGap = true;
+
+            if (this.currentSource !== null) {
+                this.currentSource.stop();
+            }
+        }
+
+        if (this.nextPlaybackTime - this.audioContext.currentTime < 0) {
+            this.nextPlaybackTime = 0;
+        }
+
+        this.lastTimestamp = timestamp;
+        this.sampleBuffer = this.appendSamples(this.sampleBuffer, audioSamples, this.sampleBufferLength);
+        this.sampleBufferLength += audioSamples.length;
+
+        if (this.isRecoveringFromGap) {
+            return;
+        }
+
+        var trimLength = 0;
+
+        if (this.sampleBufferLength / audioSamples.length > 1) {
+            if (this.bufferingOffset !== null) {
+                trimLength = this.bufferingOffset * this.codecClockRate;
+            }
+
+            if (trimLength >= this.sampleBufferLength || this.bufferingOffset === null) {
+                this.sampleBufferLength = 0;
+                return;
+            }
+        }
+
+        var audioBuffer = this.audioContext.createBuffer(1, this.sampleBufferLength - trimLength, this.audioFormat.samplingRate);
+
+        audioBuffer.getChannelData(0).set(this.sampleBuffer.subarray(trimLength, this.sampleBufferLength));
+        this.sampleBufferLength = 0;
+        this.currentSource = this.audioContext.createBufferSource();
+        this.currentSource.buffer = audioBuffer;
+        this.currentSource.connect(this.filterNode);
+
+        if (!this.nextPlaybackTime) {
+            this.nextPlaybackTime = this.audioContext.currentTime + 0.1;
+        }
+
+        this.currentSource.start(this.nextPlaybackTime);
+        this.nextPlaybackTime += audioBuffer.duration;
     }
-    function c() {}
-    var d = 8e4
-      , e = 200
-      , f = 8e3
-      , g = 1
-      , h = null
-      , i = null
-      , j = null
-      , k = 0
-      , l = {
-        type: "G.711",
-        samplingRate: f,
-        bitrate: "8000"
-    }
-      , m = 0
-      , n = !1
-      , o = 0
-      , p = 0
-      , q = null
-      , r = !1
-      , s = new Float32Array(d)
-      , t = 0
-      , u = null;
-    return c.prototype = {
-        audioInit: function(a) {
-            if (m = 0,
-            null !== h)
-                debug.info("Audio context already defined!");
-            else
-                try {
-                    return window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext,
-                    h = new AudioContext,
-                    h.onstatechange = function() {
-                        debug.info("Audio Context State changed :: " + h.state),
-                        "running" === h.state && (n = !0)
-                    }
-                    ,
-                    i = h.createGain(),
-                    j = h.createBiquadFilter(),
-                    j.connect(i),
-                    j.type = "lowpass",
-                    j.frequency.value = 4e3,
-                    j.gain.value = 40,
-                    i.connect(h.destination),
-                    this.controlVolumn(a),
-                    !0
-                } catch (b) {
-                    return debug.error("Web Audio API is not supported in this web browser! : " + b),
-                    !1
+
+    audioInit(initialVolume) {
+        this.nextPlaybackTime = 0;
+
+        if (this.audioContext !== null) {
+            debug.info('Audio context already defined!');
+            return true;
+        }
+
+        try {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext;
+            this.audioContext = new AudioContext();
+            this.audioContext.onstatechange = () => {
+                debug.info('Audio Context State changed :: ' + this.audioContext.state);
+
+                if (this.audioContext.state === 'running') {
+                    this.isAudioContextRunning = true;
                 }
-        },
-        play: function() {
-            this.controlVolumn(k)
-        },
-        stop: function() {
-            k = 0,
-            i.gain.value = 0,
-            m = 0
-        },
-        bufferAudio: function(b, c) {
-            n && a(b, c)
-        },
-        controlVolumn: function(a) {
-            h && "suspended" === h.state && h.resume().catch(() => {}),
-            k = a;
-            var b = a / g;
-            0 >= b ? (i.gain.value = 0,
-            m = 0) : i.gain.value = b >= 1 ? 1 : b
-        },
-        getVolume: function() {
-            return k
-        },
-        terminate: function() {
-            "closed" !== h.state && (m = 0,
-            n = !1,
-            h.close())
-        },
-        setBufferingFlag: function(a, b) {
-            "init" === b ? p = a : r && (0 === a || "undefined" == typeof a || null === a ? q = null : (q = a - p,
-            p = 0),
-            r = !1)
-        },
-        getBufferingFlag: function() {
-            return r
-        },
-        setInitVideoTimeStamp: function(a) {
-            p = a
-        },
-        getInitVideoTimeStamp: function() {
-            return p
-        },
-        setSamplingRate: function(a) {
-            l.samplingRate = a
+            };
+            this.gainNode = this.audioContext.createGain();
+            this.filterNode = this.audioContext.createBiquadFilter();
+            this.filterNode.connect(this.gainNode);
+            this.filterNode.type = 'lowpass';
+            this.filterNode.frequency.value = 4000;
+            this.filterNode.gain.value = 40;
+            this.gainNode.connect(this.audioContext.destination);
+            this.controlVolumn(initialVolume);
+            this.isAudioContextRunning = this.audioContext.state === 'running';
+
+            return true;
+        } catch (error) {
+            debug.error('Web Audio API is not supported in this web browser! : ' + error);
+            return false;
         }
-    },
-    new c
+    }
+
+    play() {
+        this.controlVolumn(this.volume);
+    }
+
+    stop() {
+        this.volume = 0;
+
+        if (this.gainNode) {
+            this.gainNode.gain.value = 0;
+        }
+
+        this.nextPlaybackTime = 0;
+    }
+
+    bufferAudio(audioSamples, timestamp) {
+        if (this.isAudioContextRunning) {
+            this.queueAudio(audioSamples, timestamp);
+        }
+    }
+
+    controlVolumn(nextVolume) {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+        }
+
+        this.volume = nextVolume;
+
+        if (!this.gainNode) {
+            return;
+        }
+
+        var normalizedVolume = nextVolume / this.volumeScale;
+
+        if (normalizedVolume <= 0) {
+            this.gainNode.gain.value = 0;
+            this.nextPlaybackTime = 0;
+            return;
+        }
+
+        this.gainNode.gain.value = normalizedVolume >= 1 ? 1 : normalizedVolume;
+    }
+
+    getVolume() {
+        return this.volume;
+    }
+
+    terminate() {
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+            return;
+        }
+
+        this.nextPlaybackTime = 0;
+        this.isAudioContextRunning = false;
+        this.audioContext.close();
+    }
+
+    setBufferingFlag(bufferingFlag, phase) {
+        if (phase === 'init') {
+            this.initialVideoTimestamp = bufferingFlag;
+            return;
+        }
+
+        if (!this.isRecoveringFromGap) {
+            return;
+        }
+
+        if (bufferingFlag === 0 || typeof bufferingFlag === 'undefined' || bufferingFlag === null) {
+            this.bufferingOffset = null;
+        } else {
+            this.bufferingOffset = bufferingFlag - this.initialVideoTimestamp;
+            this.initialVideoTimestamp = 0;
+        }
+
+        this.isRecoveringFromGap = false;
+    }
+
+    getBufferingFlag() {
+        return this.isRecoveringFromGap;
+    }
+
+    setInitVideoTimeStamp(timestamp) {
+        this.initialVideoTimestamp = timestamp;
+    }
+
+    getInitVideoTimeStamp() {
+        return this.initialVideoTimestamp;
+    }
+
+    setSamplingRate(samplingRate) {
+        this.audioFormat.samplingRate = samplingRate;
+    }
 }
