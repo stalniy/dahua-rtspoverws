@@ -67,12 +67,18 @@ let renderer = null;
               this.writer = this.decoder.writable.getWriter();
               this.enqueueWrite({
                   type: "configuration",
-                  keyframe: data.frameType === "I",
                   data: data.rawStream,
               }, "configuration");
+
+              // New decoder flow requires configuration and the first keyframe data packet.
+              this.enqueueWrite({
+                  type: "data",
+                  keyframe: true,
+                  data: data.rawStream,
+              }, "initial keyframe");
           } else {
               this.enqueueWrite({
-                  type: "packet",
+                  type: "data",
                   keyframe: data.frameType === "I",
                   data: data.rawStream,
               }, "packet");
