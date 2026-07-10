@@ -1,67 +1,107 @@
 import { debug } from '../debug';
 import { reconstructRtpTimestamp } from './public1.js';
 
-export var AACSession = function() {
-  function a(a, b) {
-      var c = 1,
-          e = null,
-          f = null;
-      if ("string" != typeof d) return void debug.log("wrong type of config in SDP");
-      e = parseInt(d.substring(0, 2), 16), f = parseInt(d.substring(2, 4), 16);
-      var g = e >> 3,
-          h = (7 & e) << 1 | (128 & f) >> 7;
-      i[0] = 255, i[1] = 249, i[2] = g - 1 << 6, i[2] |= h << 2, i[2] |= c >> 2, i[3] = c << 6, i[3] |= (a + 7 & 6144) >> 11, i[4] = (a + 7 & 2040) >> 3, i[5] = (a + 7 & 7) << 5, i[5] |= 1, i[6] = 84;
-      var j = new Uint8Array(i.length + b.length);
-      return j.set(i, 0), j.set(b, i.length), j
+export class AACSession {
+  constructor() {
+      this.adtsHeaderLength = 7;
+      this.audioSpecificConfig = null;
+      this.clockFrequency = null;
+      this.bitrate = null;
+      this.adtsHeaderBytes = new Uint8Array(this.adtsHeaderLength);
+      this.firstTime = 0;
+      this.lastMSW = 0;
+      this.lastPacketMsw = null;
   }
 
-  function b() {
-      this.firstTime = 0, this.lastMSW = 0, this.lastPacketMsw = null
-  }
-  var c = 7,
-      d = null,
-      e = null,
-      f = null,
-      i = new Uint8Array(c);
-  return b.prototype = {
-      parseRTPData: function(b, c, d) {
-          var e = c[22];
-          var f = c.length - 8 - (24 + e),
-              i = c.subarray(24 + e, c.length - 8),
-              k = i.subarray(0, 2),
-              l = {};
-          var m = reconstructRtpTimestamp(c, {
-              firstTime: this.firstTime,
-              lastMSW: this.lastMSW,
-              lastPacketMsw: this.lastPacketMsw
-          });
-          this.firstTime = m.firstTime,
-          this.lastMSW = m.lastMSW,
-          this.lastPacketMsw = m.lastPacketMsw;
-          var n = 1e3 * m.timestamp.timestamp + m.timestamp.timestamp_usec;
-          if (255 === k[0] && 240 === (240 & k[1])) l = {
-              codec: "AAC",
-              bufferData: i,
-              rtpTimeStamp: n
-          }, d === !0 && (l.streamData = i.subarray(7, i.length));
-          else {
-              var q = a(f, i);
-              l = {
-                  codec: "AAC",
-                  bufferData: q,
-                  rtpTimeStamp: n
-              }, d === !0 && (l.streamData = i)
-          }
-          return l
-      },
-      setCodecInfo: function(a) {
-          debug.log("Set codec info. for AAC"), d = a.config, f = a.bitrate, e = a.clockFreq
-      },
-      getCodecInfo: function() {
-          return {
-              bitrate: f,
-              clockFreq: e
-          }
+  addAdtsHeader(frameLength, audioBytes) {
+      var channelConfig = 1;
+
+      if (typeof this.audioSpecificConfig !== 'string') {
+          debug.log('wrong type of config in SDP');
+          return;
       }
-  }, new b
-};
+
+      var firstConfigByte = parseInt(this.audioSpecificConfig.substring(0, 2), 16);
+      var secondConfigByte = parseInt(this.audioSpecificConfig.substring(2, 4), 16);
+      var audioObjectType = firstConfigByte >> 3;
+      var samplingFrequencyIndex = (7 & firstConfigByte) << 1 | (128 & secondConfigByte) >> 7;
+
+      this.adtsHeaderBytes[0] = 255;
+      this.adtsHeaderBytes[1] = 249;
+      this.adtsHeaderBytes[2] = audioObjectType - 1 << 6;
+      this.adtsHeaderBytes[2] |= samplingFrequencyIndex << 2;
+      this.adtsHeaderBytes[2] |= channelConfig >> 2;
+      this.adtsHeaderBytes[3] = channelConfig << 6;
+      this.adtsHeaderBytes[3] |= (frameLength + 7 & 6144) >> 11;
+      this.adtsHeaderBytes[4] = (frameLength + 7 & 2040) >> 3;
+      this.adtsHeaderBytes[5] = (frameLength + 7 & 7) << 5;
+      this.adtsHeaderBytes[5] |= 1;
+      this.adtsHeaderBytes[6] = 84;
+
+      var frameWithHeader = new Uint8Array(this.adtsHeaderBytes.length + audioBytes.length);
+      frameWithHeader.set(this.adtsHeaderBytes, 0);
+      frameWithHeader.set(audioBytes, this.adtsHeaderBytes.length);
+
+      return frameWithHeader;
+  }
+
+  parseRTPData(_interleavedHeader, rtpPacket, includeStreamData) {
+      var extensionLength = rtpPacket[22];
+      var payloadLength = rtpPacket.length - 8 - (24 + extensionLength);
+      var payloadBytes = rtpPacket.subarray(24 + extensionLength, rtpPacket.length - 8);
+      var syncBytes = payloadBytes.subarray(0, 2);
+      var nextTimestampState = reconstructRtpTimestamp(rtpPacket, {
+          firstTime: this.firstTime,
+          lastMSW: this.lastMSW,
+          lastPacketMsw: this.lastPacketMsw
+      });
+
+      this.firstTime = nextTimestampState.firstTime;
+      this.lastMSW = nextTimestampState.lastMSW;
+      this.lastPacketMsw = nextTimestampState.lastPacketMsw;
+
+      var rtpTimestamp = 1e3 * nextTimestampState.timestamp.timestamp + nextTimestampState.timestamp.timestamp_usec;
+      var parsedFrame;
+
+      if (syncBytes[0] === 255 && (240 & syncBytes[1]) === 240) {
+          parsedFrame = {
+              codec: 'AAC',
+              bufferData: payloadBytes,
+              rtpTimeStamp: rtpTimestamp
+          };
+
+          if (includeStreamData === true) {
+              parsedFrame.streamData = payloadBytes.subarray(7, payloadBytes.length);
+          }
+
+          return parsedFrame;
+      }
+
+      var framedPayload = this.addAdtsHeader(payloadLength, payloadBytes);
+      parsedFrame = {
+          codec: 'AAC',
+          bufferData: framedPayload,
+          rtpTimeStamp: rtpTimestamp
+      };
+
+      if (includeStreamData === true) {
+          parsedFrame.streamData = payloadBytes;
+      }
+
+      return parsedFrame;
+  }
+
+  setCodecInfo(codecInfo) {
+      debug.log('Set codec info. for AAC');
+      this.audioSpecificConfig = codecInfo.config;
+      this.bitrate = codecInfo.bitrate;
+      this.clockFrequency = codecInfo.clockFreq;
+  }
+
+  getCodecInfo() {
+      return {
+          bitrate: this.bitrate,
+          clockFreq: this.clockFrequency
+      };
+  }
+}

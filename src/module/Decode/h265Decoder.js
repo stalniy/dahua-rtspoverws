@@ -1,72 +1,102 @@
 import { debug } from '../../debug.js';
 
-export function H265Decoder(Module) {
-    function a() {
-        k = Module._OpenDecoder(1, 0, 0),
-        a.prototype.setIsFirstFrame(!1);
-    }
-    var b, c, d, e, f, g, h, i, j, k = null, l = new Uint8Array, m = !1;
-    return a.prototype = {
-        init: function() {
-            debug.log("H265 Decoder init")
-        },
-        setOutputSize: function(a) {
-            i != 2 * a && (i = 2 * a,
-            j = Module._malloc(i),
-            l = new Uint8Array(Module.HEAPU8.buffer,j,i))
-        },
-        decode: function(j, m) {
-            b = Date.now(),
-            c = new Uint8Array(j),
-            l.set(c),
-            d = Module._FrameAlloc();
-            const result = Module._DecodeFrame(k, l.byteOffset, j.byteLength, i, d);
-            debug.log('decode result', result);
-            e = Date.now() - b;
-            g = Module._getYLength(d);
-            f = Module._getHeight(d);
+export class H265Decoder {
+  constructor(Module) {
+      this.module = Module;
+      this.decoderHandle = Module._OpenDecoder(1, 0, 0);
+      this.outputBufferSize = 0;
+      this.outputBufferPointer = null;
+      this.outputBufferView = new Uint8Array();
+      this.firstFrameDecoded = false;
+  }
 
-            if (!a.prototype.isFirstFrame())
-                return Module._FrameFree(d),a.prototype.setIsFirstFrame(!0),
-                {
-                    firstFrame: !0
-                };
-            if (g > 0 && f > 0) {
-                b = Date.now();
-                var n = new Uint8Array(l);
+  init() {
+      debug.log('H265 Decoder init');
+  }
 
-                return h = {
-                    data: n,
-                    option: {
-                        ylen: g,
-                        height: f,
-                        beforeDecoding: b
-                    },
-                    width: g,
-                    height: f,
-                    codecType: "h265",
-                    decodingTime: e,
-                    frameType: m
-                },
-                Module._FrameFree(d),
-                h
-            }
-        },
-        setIsFirstFrame: function(a) {
-            m = a
-        },
-        isFirstFrame: function() {
-            return m
-        },
-        free: function() {
-            Module._free(j);
-            j = null
-        },
-        close() {
-          this.free();
-          Module._CloseDecoder(k);
-          k = null;
-        }
-    },
-    new a
+  setOutputSize(outputSize) {
+      var requiredBufferSize = 2 * outputSize;
+
+      if (this.outputBufferSize === requiredBufferSize) {
+          return;
+      }
+
+      this.free();
+      this.outputBufferSize = requiredBufferSize;
+      this.outputBufferPointer = this.module._malloc(requiredBufferSize);
+      this.outputBufferView = new Uint8Array(this.module.HEAPU8.buffer, this.outputBufferPointer, requiredBufferSize);
+  }
+
+  decode(encodedFrame, frameType) {
+      var decodeStartedAt = Date.now();
+      var inputBytes = new Uint8Array(encodedFrame);
+
+      this.outputBufferView.set(inputBytes);
+
+      var framePointer = this.module._FrameAlloc();
+
+      try {
+          var decodeResult = this.module._DecodeFrame(
+              this.decoderHandle,
+              this.outputBufferView.byteOffset,
+              encodedFrame.byteLength,
+              this.outputBufferSize,
+              framePointer
+          );
+
+          debug.log('decode result', decodeResult);
+
+          var decodingTime = Date.now() - decodeStartedAt;
+          var yLength = this.module._getYLength(framePointer);
+          var frameHeight = this.module._getHeight(framePointer);
+
+          if (!this.isFirstFrame()) {
+              this.setIsFirstFrame(true);
+              return {
+                  firstFrame: true
+              };
+          }
+
+          if (yLength <= 0 || frameHeight <= 0) {
+              return;
+          }
+
+          return {
+              data: new Uint8Array(this.outputBufferView),
+              option: {
+                  ylen: yLength,
+                  height: frameHeight,
+                  beforeDecoding: Date.now()
+              },
+              width: yLength,
+              height: frameHeight,
+              codecType: 'h265',
+              decodingTime: decodingTime,
+              frameType: frameType
+          };
+      } finally {
+          this.module._FrameFree(framePointer);
+      }
+  }
+
+  setIsFirstFrame(isFirstFrame) {
+      this.firstFrameDecoded = isFirstFrame;
+  }
+
+  isFirstFrame() {
+      return this.firstFrameDecoded;
+  }
+
+  free() {
+      if (this.outputBufferPointer) {
+          this.module._free(this.outputBufferPointer);
+          this.outputBufferPointer = null;
+      }
+  }
+
+  close() {
+      this.free();
+      this.module._CloseDecoder(this.decoderHandle);
+      this.decoderHandle = null;
+  }
 }

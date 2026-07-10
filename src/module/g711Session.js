@@ -1,41 +1,47 @@
-import { G711AudioDecoder } from './Decode/audioDecoderG711'
+import { G711AudioDecoder } from './Decode/audioDecoderG711';
 import { debug } from '../debug';
+import { reconstructRtpTimestamp } from './public1.js';
 
-export var G711Session = function(a) {
-  function b() {
-      d = new G711AudioDecoder(a), this.firstTime = 0, this.lastMSW = 0
+export class G711Session {
+  constructor(codecName) {
+      this.codecName = codecName;
+      this.decoder = new G711AudioDecoder(codecName);
+      this.samplingRate = null;
+      this.firstTime = 0;
+      this.lastMSW = 0;
+      this.lastPacketMsw = null;
   }
-  var c = 0,
-      d = null,
-      e = null,
-      f = 0,
-      g = {
-          seconds: null,
-          useconds: null
+
+  parseRTPData(_interleavedHeader, rtpPacket, includeStreamData) {
+      var extensionLength = rtpPacket[22];
+      var payloadBytes = rtpPacket.subarray(24 + extensionLength, rtpPacket.length - 8);
+      var nextTimestampState = reconstructRtpTimestamp(rtpPacket, {
+          firstTime: this.firstTime,
+          lastMSW: this.lastMSW,
+          lastPacketMsw: this.lastPacketMsw
+      });
+
+      this.firstTime = nextTimestampState.firstTime;
+      this.lastMSW = nextTimestampState.lastMSW;
+      this.lastPacketMsw = nextTimestampState.lastPacketMsw;
+
+      var decodedSamples = this.decoder.decode(payloadBytes);
+      var parsedFrame = {
+          codec: 'G711',
+          bufferData: decodedSamples,
+          rtpTimeStamp: 1e3 * nextTimestampState.timestamp.timestamp + nextTimestampState.timestamp.timestamp_usec,
+          samplingRate: this.samplingRate
       };
-  return b.prototype = {
-      parseRTPData: function(a, b, h) {
-          var i = b[22],
-              j = b.subarray(24 + i, b.length - 8);
-          c = (b[21] << 8) + b[20];
-          var k = (b[19] << 24) + (b[18] << 16) + (b[17] << 8) + b[16] >>> 0,
-              l = Date.UTC("20" + (k >> 26), (k >> 22 & 15) - 1, k >> 17 & 31, k >> 12 & 31, k >> 6 & 63, 63 & k) / 1e3;
-          if (l -= 28800, 0 == this.firstTime) this.firstTime = l, this.lastMSW = 0, f = (b[21] << 8) + b[20], g.seconds = l, g.useconds = 0;
-          else {
-              var m, n = (b[21] << 8) + b[20];
-              m = n > f ? n - f : n + 65535 - f, this.lastMSW += m, l > this.firstTime && (this.lastMSW -= 1e3), this.firstTime = l, g.seconds = l, g.useconds = this.lastMSW, f = n
-          }
-          var o = d.decode(j),
-              p = {
-                  codec: "G711",
-                  bufferData: o,
-                  rtpTimeStamp: 1e3 * g.seconds + g.useconds,
-                  samplingRate: e
-              };
-          return h === !0 && (p.streamData = j), p
-      },
-      setCodecInfo: function(a) {
-          debug.log("Set codec info. for G711"), e = a.ClockFreq - 0
+
+      if (includeStreamData === true) {
+          parsedFrame.streamData = payloadBytes;
       }
-  }, new b
-};
+
+      return parsedFrame;
+  }
+
+  setCodecInfo(codecInfo) {
+      debug.log('Set codec info. for G711');
+      this.samplingRate = codecInfo.ClockFreq - 0;
+  }
+}
