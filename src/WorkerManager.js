@@ -16,10 +16,16 @@ import { WebGLVideoFrameRenderer,
 export default function WorkerManager() {
 
 let webCodecsPlayStarted = false;
+let webCodecsUnsupportedNotified = false;
+let waitingForKeyframeNotified = false;
 /**
  * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
  */
 let renderer = null;
+
+function canUseWebCodecs() {
+    return "function" == typeof globalThis.VideoDecoder && null !== renderer;
+}
 
   const webCodecsDecoder = {
       decoder: null,
@@ -50,19 +56,28 @@ let renderer = null;
           });
       },
       write(data) {
+          if (!canUseWebCodecs())
+              return "unsupported";
+
           const nextCodec = this.normalizeCodec(data.codecType);
           if (this.decoder && this.codec !== nextCodec)
               this.reset();
 
           const needConfiguration = !this.decoder;
           if (needConfiguration && data.frameType !== "I")
-              return false;
+              return "need-keyframe";
 
           if (needConfiguration) {
-              this.decoder = new WebCodecsVideoDecoder({
-                  codec: nextCodec,
-                  renderer: renderer
-              });
+              try {
+                  this.decoder = new WebCodecsVideoDecoder({
+                      codec: nextCodec,
+                      renderer: renderer
+                  });
+              } catch (error) {
+                  debug.error("workerManager::videoDecoderInfo decoder init failed", error);
+                  console.warn("WebCodecs decoder init failed. Falling back to non-WebCodecs mode.", error);
+                  return "init-failed";
+              }
               this.codec = nextCodec;
               this.writer = this.decoder.writable.getWriter();
               this.enqueueWrite({
@@ -83,7 +98,7 @@ let renderer = null;
                   data: data.rawStream,
               }, "packet");
           }
-          return true;
+          return "ok";
       }
   };
 
@@ -155,6 +170,14 @@ let renderer = null;
           "canvas" === P && C(J.timeStamp));
           break;
         case "videoDecoderInfo":
+            if (!canUseWebCodecs()) {
+                if (!webCodecsUnsupportedNotified) {
+                    webCodecsUnsupportedNotified = true;
+                    console.warn("WebCodecs VideoDecoder is unavailable. Falling back to video mode.");
+                }
+                break;
+            }
+
             const data = c.data;
             const nextCodecType = webCodecsDecoder.codecTypeName(data.codecType);
 
@@ -182,10 +205,23 @@ let renderer = null;
                 webCodecsPlayStarted = true;
             }
 
-            if (!webCodecsDecoder.write(data)) {
-                console.error("videoDecoderInfo: frameType is not I");
+            const writeResult = webCodecsDecoder.write(data);
+            if ("ok" !== writeResult) {
+                if ("need-keyframe" === writeResult) {
+                    if (!waitingForKeyframeNotified) {
+                        waitingForKeyframeNotified = true;
+                        console.warn("Waiting for first I-frame. Dropping P-frames until keyframe arrives.");
+                    }
+                    return;
+                }
+
+                if ("unsupported" !== writeResult)
+                    console.error("videoDecoderInfo: write failed", writeResult);
                 return;
             }
+
+            if (waitingForKeyframeNotified && "I" === data.frameType)
+                waitingForKeyframeNotified = false;
 
             break;
       case "time":
@@ -470,6 +506,8 @@ let renderer = null;
           renderer = createVideoFrameRenderer(S);
           webCodecsDecoder.reset();
           webCodecsPlayStarted = false;
+          webCodecsUnsupportedNotified = false;
+          waitingForKeyframeNotified = false;
           H = IvsDraw();
           p.setResizeCallback(s);
           yb = document.getElementById("count-fps");
@@ -838,8 +876,11 @@ let renderer = null;
           M = a
       },
       setLiveMode: function(a) {
-          null !== y && y(a),
-          P = null === a ? "canvas" : a,
+          const requestedMode = null === a ? "canvas" : a;
+          const effectiveMode = "canvas" === requestedMode && !canUseWebCodecs() ? "video" : requestedMode;
+
+          null !== y && y(effectiveMode),
+          P = effectiveMode,
           "video" === P ? null !== p && p.renewCanvas() : "canvas" === P && h(!1)
       },
       setPlayMode: function(a) {
@@ -897,7 +938,8 @@ let renderer = null;
       initStartTime: function() {
           if ("canvas" === P) {
               webCodecsDecoder.reset(),
-              webCodecsPlayStarted = !1
+              webCodecsPlayStarted = !1,
+              waitingForKeyframeNotified = !1
           }
           var a = {
               type: "initStartTime"
@@ -960,6 +1002,8 @@ let renderer = null;
 
           webCodecsDecoder.reset();
           webCodecsPlayStarted = false;
+          webCodecsUnsupportedNotified = false;
+          waitingForKeyframeNotified = false;
 
           // Clean up additional components
           if (zb) {
