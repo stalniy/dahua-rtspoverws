@@ -1,7 +1,4 @@
 import { videoEncoding, debug, decodeMode } from './public1.js';
-import { default as loadFFMPEG } from './Decode/ffmpeg-core.js';
-
-// import { loadFFMPEG } from './Decode/ffmpeg.js';
 
 var videoRtpSessionsArray = []
   , sdpInfo = null
@@ -65,11 +62,8 @@ async function setVideoRtpSession(a) {
 
         if (a.sdpInfo[b].codecName === "H264") {
           if (h264Session === null) {
-            const [ffmpeg, H264Session] = await Promise.all([
-              loadFFMPEG(),
-              import('./h264Session.js').then(m => m.H264Session)
-            ]);
-            h264Session = new H264Session(ffmpeg);
+            const H264Session = await import('./h264Session.js').then(m => m.H264Session);
+            h264Session = new H264Session();
           }
           rtpSession = h264Session;
           rtpSession.init(a.decodeMode);
@@ -79,11 +73,8 @@ async function setVideoRtpSession(a) {
           rtpSession.setLessRate(a.lessRateCanvas);
         } else if (a.sdpInfo[b].codecName === "H265") {
           if (h265Session === null) {
-            const [ffmpeg, H265Session] = await Promise.all([
-              loadFFMPEG(),
-              import('./h265Session.js').then(m => m.H265Session)
-            ]);
-            h265Session = new H265Session(ffmpeg);
+            const H265Session = await import('./h265Session.js').then(m => m.H265Session);
+            h265Session = new H265Session();
           }
           rtpSession = h265Session;
           rtpSession.init();

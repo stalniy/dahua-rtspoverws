@@ -7,8 +7,7 @@ import { debug } from './debug.js';
 import { AudioPlayerGxx, AudioPlayerAAC } from './audioPlayer.js';
 import VideoWorker from './module/videoWorker.js?worker';
 import AudioWorker from './module/audioWorker.js?worker';
-import { H265Decoder,
-    WebGLVideoFrameRenderer,
+import { WebGLVideoFrameRenderer,
     BitmapVideoFrameRenderer,
     WebCodecsVideoDecoder,
  } from "@yume-chan/scrcpy-decoder-webcodecs"
@@ -16,15 +15,71 @@ import { H265Decoder,
 
 export default function WorkerManager() {
 
-    /**
-     * @type {import("@yume-chan/scrcpy-decoder-webcodecs").WebCodecsVideoDecoder}
-     */
-let decoder = null;
-let baseTimestamp = null;
+let webCodecsPlayStarted = false;
 /**
  * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
  */
 let renderer = null;
+
+  const webCodecsDecoder = {
+      decoder: null,
+      writer: null,
+      writeLock: Promise.resolve(),
+      codec: null,
+      normalizeCodec(codecType) {
+          if (!codecType)
+              return ScrcpyVideoCodecId.H265;
+          var value = (codecType + "").toLowerCase();
+          return -1 !== value.indexOf("264") || -1 !== value.indexOf("avc") ? ScrcpyVideoCodecId.H264 : ScrcpyVideoCodecId.H265;
+      },
+      codecTypeName(codecType) {
+          return this.normalizeCodec(codecType) === ScrcpyVideoCodecId.H264 ? "h264" : "h265";
+      },
+      reset() {
+          null !== this.writer && (this.writer.releaseLock(),
+          this.writer = null),
+          null !== this.decoder && (this.decoder.close?.(),
+          this.decoder.dispose?.(),
+          this.decoder = null),
+          this.writeLock = Promise.resolve(),
+          this.codec = null;
+      },
+      enqueueWrite(payload, context) {
+          this.writeLock = this.writeLock.then(() => this.writer.write(payload)).catch((error) => {
+              debug.error("workerManager::videoDecoderInfo " + context + " write failed", error);
+          });
+      },
+      write(data) {
+          const nextCodec = this.normalizeCodec(data.codecType);
+          if (this.decoder && this.codec !== nextCodec)
+              this.reset();
+
+          const needConfiguration = !this.decoder;
+          if (needConfiguration && data.frameType !== "I")
+              return false;
+
+          if (needConfiguration) {
+              this.decoder = new WebCodecsVideoDecoder({
+                  codec: nextCodec,
+                  renderer: renderer
+              });
+              this.codec = nextCodec;
+              this.writer = this.decoder.writable.getWriter();
+              this.enqueueWrite({
+                  type: "configuration",
+                  keyframe: data.frameType === "I",
+                  data: data.rawStream,
+              }, "configuration");
+          } else {
+              this.enqueueWrite({
+                  type: "packet",
+                  keyframe: data.frameType === "I",
+                  data: data.rawStream,
+              }, "packet");
+          }
+          return true;
+      }
+  };
 
   function a() {
       O = !0,
@@ -94,78 +149,33 @@ let renderer = null;
           "canvas" === P && C(J.timeStamp));
           break;
         case "videoDecoderInfo":
-            // console.log("videoDecoderInfo", c.data);
             const data = c.data;
-            const k = data.timestamp
-            const nalUnits = data.units;
+            const nextCodecType = webCodecsDecoder.codecTypeName(data.codecType);
 
+            // Keep parity with the old canvas path: IVS and audio sync depend on J.timeStamp.
+            J = {
+                width: data.width,
+                height: data.height,
+                codecType: nextCodecType,
+                frameType: data.frameType,
+                timeStamp: data.timestamp
+            };
 
-            // const combinedNALUs = combineNALUs(c.data.nalUnits);
-            if (!decoder) {
-                if (c.data.frameType !== "I") {
-                    console.error("videoDecoderInfo: frameType is not I");
-                    return;
-                }
+            if (0 === ub && data.timestamp) {
+                ub = performance.now();
+                "canvas" === P && C(data.timestamp);
+            } else if ("canvas" === P && C && data.timestamp) {
+                C(data.timestamp);
+            }
 
-                if (!baseTimestamp) {
-                    // p.startRendering();
-                    baseTimestamp = k.timestamp * 1e3 + k.timestamp_usec;
-                }
-                decoder = new WebCodecsVideoDecoder({
-                    codec: ScrcpyVideoCodecId.H265,
-                    renderer: renderer
-                });
+            if (!webCodecsPlayStarted && null !== t) {
+                t();
+                webCodecsPlayStarted = true;
+            }
 
-                // decoder = new H265Decoder(new VideoDecoder({
-                //     output: (frame) => {
-                //         renderer.draw(frame);
-                //         frame.close();
-                //         // try {
-                //         //     p.draw(frame, frame.codedWidth, frame.codedHeight, 'h265', frame.frameType, frame.timestamp);
-                //         //     // Frame is handled by StreamDrawer, which will close it appropriately
-                //         // } catch (drawError) {
-                //         //     console.error('Error drawing video frame:', drawError);
-                //         //     // Close frame to prevent memory leak if drawing failed
-                //         //     frame.close();
-                //         // }
-                //     },
-                //     error: (err) => {
-                //         console.error('VideoDecoder error:', err);
-                //         // Log additional decoder state information for debugging
-                //         if (decoder) {
-                //             console.error('Decoder state:', decoder.state);
-                //             console.error('Decode queue size:', decoder.decodeQueueSize);
-                //         }
-                //     }
-                // }), (width, height) => {
-                //     renderer.setSize(width, height);
-                // });
-                window.___writer = decoder.writable.getWriter();
-
-                // window.__keyframe = {
-                //     type: "configuration",
-                //     keyframe: data.frameType === "I",
-                //     data: data.rawStream,
-                // };
-                window.__lockPromise = window.___writer.write({
-                    type: "configuration",
-                    keyframe: data.frameType === "I",
-                    data: data.rawStream,
-                })
-            } else {
-                window.__lockPromise = window.__lockPromise.then(async () => {
-                    // if (window.__keyframe) {
-                    //     const keyframe = window.__keyframe;
-                    //     window.__keyframe = null;
-                    //     console.log("write keyframe", { ...keyframe, type: "packet" });
-                    //     // await window.___writer.write({ ...keyframe, type: "packet" });
-                    // }
-                    return window.___writer.write({
-                        type: "packet",
-                        keyframe: data.frameType === "I",
-                        data: data.rawStream,
-                    })
-                })
+            if (!webCodecsDecoder.write(data)) {
+                console.error("videoDecoderInfo: frameType is not I");
+                return;
             }
 
             break;
@@ -449,6 +459,8 @@ let renderer = null;
           var g = f === !0 ? 500 : 15;
           p = new StreamDrawer(Ab,this,S,g);
           renderer = createVideoFrameRenderer(S);
+          webCodecsDecoder.reset();
+          webCodecsPlayStarted = false;
           H = IvsDraw();
           p.setResizeCallback(s);
           yb = document.getElementById("count-fps");
@@ -817,7 +829,6 @@ let renderer = null;
           M = a
       },
       setLiveMode: function(a) {
-        console.log("setLiveMode", a);
           null !== y && y(a),
           P = null === a ? "canvas" : a,
           "video" === P ? null !== p && p.renewCanvas() : "canvas" === P && h(!1)
@@ -875,12 +886,16 @@ let renderer = null;
           Q = a
       },
       initStartTime: function() {
+          if ("canvas" === P) {
+              webCodecsDecoder.reset(),
+              webCodecsPlayStarted = !1
+          }
           var a = {
               type: "initStartTime"
           };
-          videoProcessWorker.postMessage(a),
-          p.stopRendering(),
-          p.startRendering()
+          null !== videoProcessWorker && videoProcessWorker.postMessage(a),
+          null !== p && (p.stopRendering(),
+          p.startRendering())
       },
       terminateAudio() {
         if (audioProcessWorker) {
@@ -934,6 +949,9 @@ let renderer = null;
               X = null;
           }
 
+          webCodecsDecoder.reset();
+          webCodecsPlayStarted = false;
+
           // Clean up additional components
           if (zb) {
               zb = null;
@@ -949,11 +967,11 @@ let renderer = null;
       },
       pause: function() {
           X && X.pause(),
-          videoProcessWorker && p.pause()
+          videoProcessWorker && null !== p && p.pause()
       },
       play: function() {
           X && X.play(),
-          videoProcessWorker && p.play()
+          videoProcessWorker && null !== p && p.play()
       },
       setLessRate: function(a) {
           Gb = a

@@ -1,6 +1,5 @@
 "use strict";
-import { VideoBufferList, debug } from './public1.js'
-import { H265Decoder } from './Decode/h265Decoder.js';
+import { VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
 
 
 function H265SPSParser() {
@@ -235,14 +234,14 @@ function H265SPSParser() {
     },
     new a
 }
-export function H265Session(ffmpeg) {
+export function H265Session() {
     "use strict";
     function a() {
-        this.decoder = H265Decoder(ffmpeg),
         this.firstTime = 0,
-        this.lastMSW = 0
+        this.lastMSW = 0,
+        this.lastPacketMsw = null
     }
-    var b, c = 0, d = 0, e = 0, f = !1, g = 0, h = 0, i = new H265SPSParser, j = {
+    var b, c = 0, e = 0, f = !1, g = 0, h = 0, i = new H265SPSParser, j = {
         frameData: null,
         timeStamp: null
     }, k = {
@@ -304,7 +303,6 @@ export function H265Session(ffmpeg) {
             this.checkDelay = a
         },
         init: function() {
-            this.decoder.setIsFirstFrame(!1),
             this.videoBufferList = new VideoBufferList,
             this.firstDiffTime = 0,
             this.checkDelay = !0,
@@ -312,30 +310,16 @@ export function H265Session(ffmpeg) {
         },
         parseRTPData: function(a, n, o, p, q) {
             var w = null
-              , x = {}
-              , y = (n[19] << 24) + (n[18] << 16) + (n[17] << 8) + n[16] >>> 0
-              , z = Date.UTC("20" + (y >> 26), (y >> 22 & 15) - 1, y >> 17 & 31, y >> 12 & 31, y >> 6 & 63, 63 & y) / 1e3;
-            if (z -= 28800,
-            0 == this.firstTime)
-                this.firstTime = z,
-                this.lastMSW = 0,
-                d = (n[21] << 8) + n[20],
-                k = {
-                    timestamp: this.firstTime,
-                    timestamp_usec: 0
-                };
-            else {
-                var A, B = (n[21] << 8) + n[20];
-                A = B > d ? B - d : B + 65535 - d,
-                this.lastMSW += A,
-                z > this.firstTime && (this.lastMSW -= 1e3),
-                this.firstTime = z,
-                k = {
-                    timestamp: z,
-                    timestamp_usec: this.lastMSW
-                },
-                d = B
-            }
+              , x = {};
+            var y = reconstructRtpTimestamp(n, {
+                firstTime: this.firstTime,
+                lastMSW: this.lastMSW,
+                lastPacketMsw: this.lastPacketMsw
+            });
+            this.firstTime = y.firstTime,
+            this.lastMSW = y.lastMSW,
+            this.lastPacketMsw = y.lastPacketMsw,
+            k = y.timestamp,
             0 !== this.getFramerate() && "undefined" != typeof this.getFramerate() || "undefined" == typeof this.getTimeStamp() || (this.setFramerate(Math.round(1e3 / ((k.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (k.timestamp_usec - this.getTimeStamp().timestamp_usec)))),
             debug.log("setFramerate" + Math.round(1e3 / ((k.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (k.timestamp_usec - this.getTimeStamp().timestamp_usec))))),
             this.setTimeStamp(k);
@@ -449,16 +433,7 @@ export function H265Session(ffmpeg) {
 
         },
         findIFrame: function() {
-            if (null !== this.videoBufferList) {
-                var a = this.videoBufferList.findIFrame();
-                if (null === a || "undefined" == typeof a)
-                    return !1;
-                var b = {};
-                return this.setTimeStamp(a.timeStamp),
-                b.frameData = this.decoder.decode(a.buffer),
-                b.timeStamp = a.timeStamp,
-                b
-            }
+            return !1
         },
         getFramerate: function() {
             return q
@@ -474,9 +449,7 @@ export function H265Session(ffmpeg) {
         setTimeStamp: function(a) {
             this.timeData = a
         },
-        terminate() {
-            this.decoder.close();
-        }
+        terminate() {}
     },
     new a
 };

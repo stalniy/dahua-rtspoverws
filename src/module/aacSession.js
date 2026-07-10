@@ -1,4 +1,5 @@
 import { debug } from '../debug';
+import { reconstructRtpTimestamp } from './public1.js';
 
 export var AACSession = function() {
   function a(a, b) {
@@ -15,45 +16,40 @@ export var AACSession = function() {
   }
 
   function b() {
-      this.firstTime = 0, this.lastMSW = 0
+      this.firstTime = 0, this.lastMSW = 0, this.lastPacketMsw = null
   }
   var c = 7,
       d = null,
       e = null,
       f = null,
-      g = null,
-      h = 0,
-      i = new Uint8Array(c),
-      j = {
-          seconds: null,
-          useconds: null
-      };
+      i = new Uint8Array(c);
   return b.prototype = {
       parseRTPData: function(b, c, d) {
           var e = c[22];
-          g = (c[21] << 8) + c[20];
           var f = c.length - 8 - (24 + e),
               i = c.subarray(24 + e, c.length - 8),
               k = i.subarray(0, 2),
-              l = {},
-              m = (c[19] << 24) + (c[18] << 16) + (c[17] << 8) + c[16] >>> 0,
-              n = Date.UTC("20" + (m >> 26), (m >> 22 & 15) - 1, m >> 17 & 31, m >> 12 & 31, m >> 6 & 63, 63 & m) / 1e3;
-          if (n -= 28800, 0 == this.firstTime) this.firstTime = n, this.lastMSW = 0, h = (c[21] << 8) + c[20], j.seconds = n, j.useconds = 0;
-          else {
-              var o, p = (c[21] << 8) + c[20];
-              o = p > h ? p - h : p + 65535 - h, this.lastMSW += o, n > this.firstTime && (this.lastMSW -= 1e3), this.firstTime = n, j.seconds = n, j.useconds = this.lastMSW, h = p
-          }
+              l = {};
+          var m = reconstructRtpTimestamp(c, {
+              firstTime: this.firstTime,
+              lastMSW: this.lastMSW,
+              lastPacketMsw: this.lastPacketMsw
+          });
+          this.firstTime = m.firstTime,
+          this.lastMSW = m.lastMSW,
+          this.lastPacketMsw = m.lastPacketMsw;
+          var n = 1e3 * m.timestamp.timestamp + m.timestamp.timestamp_usec;
           if (255 === k[0] && 240 === (240 & k[1])) l = {
               codec: "AAC",
               bufferData: i,
-              rtpTimeStamp: 1e3 * j.seconds + j.useconds
+              rtpTimeStamp: n
           }, d === !0 && (l.streamData = i.subarray(7, i.length));
           else {
               var q = a(f, i);
               l = {
                   codec: "AAC",
                   bufferData: q,
-                  rtpTimeStamp: 1e3 * j.seconds + j.useconds
+                  rtpTimeStamp: n
               }, d === !0 && (l.streamData = i)
           }
           return l

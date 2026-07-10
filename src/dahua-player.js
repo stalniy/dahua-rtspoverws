@@ -611,6 +611,13 @@ class DahuaPlayer extends HTMLElement {
       this.#player.play();
     }
 
+    if (!this.#isAudioEnabled) {
+      const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
+      if (volumeSlider) {
+        this.setVolume(volumeSlider.value);
+      }
+    }
+
     this.#isPlaying = true;
     this.#updatePlayButton();
   }

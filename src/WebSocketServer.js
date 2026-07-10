@@ -604,13 +604,18 @@ export function WebsocketServer(wsUrl, rtspUrl, options) {
           case "PLAY":
             if (((E = "Play"), null != a.range)) {
               b = buildRTSPCommand("PLAY", null, null, a.range);
+              workerManager.play();
               break;
             }
-            (b = buildRTSPCommand("PLAY", null, null)), P && workerManager.initStartTime();
+            b = buildRTSPCommand("PLAY", null, null);
+            workerManager.initStartTime();
+            workerManager.play();
             break;
           case "PAUSE":
             if ("PAUSE" === E) break;
-            (E = "PAUSE"), (b = buildRTSPCommand("PAUSE", null, null));
+            E = "PAUSE";
+            b = buildRTSPCommand("PAUSE", null, null);
+            workerManager.pause();
             break;
           case "SCALE":
             (b = buildRTSPCommand("SCALE", null, null, a.data)), workerManager.playbackSpeed(a.data);

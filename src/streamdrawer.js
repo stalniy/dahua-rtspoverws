@@ -1,7 +1,5 @@
 import {
-  WebGLCanvas,
   ImageWebGLCanvas,
-  YUVWebGLCanvas,
 } from "./module/WebGLCanvas";
 import { debug } from "./debug.js";
 import { base64ArrayBuffer } from "./module/public1.js";
@@ -55,7 +53,7 @@ function StreamDrawer(a, b, c, d) {
         new a
     }
     function f() {
-        s = "rgb2d",
+        s = "ImageWebGL",
         u = null,
         R = new e,
         t = J,
@@ -139,19 +137,7 @@ function StreamDrawer(a, b, c, d) {
       , R = null
       , S = function(a, b) {
         var c = new Size(a,b);
-        switch (s) {
-        case "RGB2d":
-            p = new RGB2dCanvas(o,c);
-            break;
-        case "YUVWebGL":
-            p = new YUVWebGLCanvas(o,c);
-            break;
-        case "ImageWebGL":
-            p = new ImageWebGLCanvas(o,c);
-            break;
-        case "WebGL":
-            p = new WebGLCanvas(o,c)
-        }
+        p = new ImageWebGLCanvas(o,c)
     }
       , T = function(a) {
         var b = a.document
@@ -260,7 +246,7 @@ function StreamDrawer(a, b, c, d) {
         F = R.dequeue();
         const isVideoFrame = window.VideoFrame && F && F.buffer instanceof VideoFrame;
         if (null !== F && null !== F.buffer && ("mjpeg" === F.codecType || isVideoFrame || F.buffer.length > 0)) {
-            ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType) && (s = ("h264" === F.codecType || "h265" === F.codecType) && !isVideoFrame ? "YUVWebGL" : "ImageWebGL",
+            ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType) && (s = "ImageWebGL",
             S(F.width, F.height),
             ("undefined" == q || null == q || 0 == q) && w("PlayStart"),
             "mjpeg" !== F.codecType && g(F.option.realWidth, F.option.realHeight),
@@ -338,8 +324,8 @@ function StreamDrawer(a, b, c, d) {
                 if ((typeof q === "undefined" || typeof r === "undefined" ||
                      q !== width || r !== height || u !== codecType)) {
 
-                    // Set drawing strategy based on codec type
-                    s = (codecType === "h264" || codecType === "h265") ? "YUVWebGL" : "ImageWebGL";
+                    // StreamDrawer now uses ImageWebGL fallback only; codec-specific decode is handled upstream.
+                    s = "ImageWebGL";
                     S(width, height);
                     q = width;
                     r = height;

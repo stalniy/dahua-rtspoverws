@@ -129,11 +129,9 @@ export function AudioPlayerAAC() {
                 } catch (e) {}
         },
         controlVolumn: function(a) {
-            if (h.state === "suspended") {
-                h.resume();
-            }
             r = a,
             null !== p && (p.volume = 0 >= a ? 0 : a >= 1 ? 1 : a,
+            a > 0 && p.paused && p.play().catch(() => {}),
             r = a)
         },
         getVolume: function() {
@@ -265,6 +263,7 @@ export function AudioPlayerGxx() {
             n && a(b, c)
         },
         controlVolumn: function(a) {
+            h && "suspended" === h.state && h.resume().catch(() => {}),
             k = a;
             var b = a / g;
             0 >= b ? (i.gain.value = 0,

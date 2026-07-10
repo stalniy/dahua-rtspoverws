@@ -18,6 +18,58 @@ export function BrowserDetect() {
   c
 }
 
+export function reconstructRtpTimestamp(payload, state, options) {
+  var config = options || {};
+  var includeEqualOnWrap = config.includeEqualOnWrap === true;
+  var packed = (payload[19] << 24) + (payload[18] << 16) + (payload[17] << 8) + payload[16] >>> 0;
+  var seconds = Date.UTC(
+    "20" + (packed >> 26),
+    (packed >> 22 & 15) - 1,
+    packed >> 17 & 31,
+    packed >> 12 & 31,
+    packed >> 6 & 63,
+    63 & packed
+  ) / 1e3;
+  seconds -= 28800;
+
+  var currentMsw = (payload[21] << 8) + payload[20];
+  var isFirstPacket = 0 == state.firstTime || null == state.lastPacketMsw;
+
+  if (isFirstPacket) {
+    return {
+      timestamp: {
+        timestamp: seconds,
+        timestamp_usec: 0
+      },
+      firstTime: seconds,
+      lastMSW: 0,
+      lastPacketMsw: currentMsw
+    };
+  }
+
+  var delta;
+  if (includeEqualOnWrap ? currentMsw >= state.lastPacketMsw : currentMsw > state.lastPacketMsw) {
+    delta = currentMsw - state.lastPacketMsw;
+  } else {
+    delta = currentMsw + 65535 - state.lastPacketMsw;
+  }
+
+  var nextLastMSW = state.lastMSW + delta;
+  if (seconds > state.firstTime) {
+    nextLastMSW -= 1e3;
+  }
+
+  return {
+    timestamp: {
+      timestamp: seconds,
+      timestamp_usec: nextLastMSW
+    },
+    firstTime: seconds,
+    lastMSW: nextLastMSW,
+    lastPacketMsw: currentMsw
+  };
+}
+
 export const Script = function() {
   function a() {}
   return a.createFromElementId = function(b) {
