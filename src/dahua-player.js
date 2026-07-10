@@ -6,6 +6,7 @@ class DahuaPlayer extends HTMLElement {
   #playerInitializerId = NaN;
   #isPlayerConnected = false;
   #controlsTimeout = null;
+  #boundKeydownHandler = null;
   #videoCanvas = null;
   #ivsCanvasDrawer = null;
   #player = null;
@@ -32,6 +33,12 @@ class DahuaPlayer extends HTMLElement {
 
   disconnectedCallback() {
     clearTimeout(this.#playerInitializerId);
+    clearTimeout(this.#controlsTimeout);
+
+    if (this.#boundKeydownHandler) {
+      this.removeEventListener('keydown', this.#boundKeydownHandler);
+    }
+
     if (this.#player) {
       this.destroyPlayer();
       this.dispatchEvent(new CustomEvent('disconnected', {
@@ -55,10 +62,20 @@ class DahuaPlayer extends HTMLElement {
   }
 
   destroyPlayer() {
+    this.#cleanupVideoFullscreen();
+
     if (this.#player) {
       this.#player.close();
-      this.#ivsCanvasDrawer?.close();
     }
+
+    this.#ivsCanvasDrawer?.close();
+    this.#player = null;
+    this.#ivsCanvasDrawer = null;
+    this.#isPlayerConnected = false;
+    this.#isFullscreen = false;
+    this.#isIVSEnabled = false;
+    this.#isAudioEnabled = false;
+    this.#isPlaying = false;
   }
 
   #render() {
@@ -315,10 +332,10 @@ class DahuaPlayer extends HTMLElement {
     ivsBtn?.addEventListener('click', () => this.#toggleIVS());
     fullscreenBtn.addEventListener('click', () => this.#toggleFullscreen());
 
-    this.addEventListener('keydown', (e) => {
+    this.#boundKeydownHandler ??= (e) => {
       e.preventDefault();
 
-      switch(e.code) {
+      switch (e.code) {
         case 'Space':
           this.#togglePlay();
           break;
@@ -332,7 +349,9 @@ class DahuaPlayer extends HTMLElement {
           if (ivsBtn) this.#toggleIVS();
           break;
       }
-    });
+    };
+
+    this.addEventListener('keydown', this.#boundKeydownHandler);
   }
 
   #initializePlayer() {
@@ -405,17 +424,22 @@ class DahuaPlayer extends HTMLElement {
         }
       });
 
-      this.#player.init(this.#videoCanvas, {}, channel).then(() => {
-        loadingEl.style.display = 'none';
+      this.#player.init(this.#videoCanvas, {}, channel)
+        .then(() => {
+          loadingEl.style.display = 'none';
 
-        this.dispatchEvent(new CustomEvent('connected', {
-          detail: { cameraIp, channel }
-        }));
+          this.dispatchEvent(new CustomEvent('connected', {
+            detail: { cameraIp, channel }
+          }));
 
-        if (this.hasAttribute('autoplay')) {
-          this.play();
-        }
-      });
+          if (this.hasAttribute('autoplay')) {
+            this.play();
+          }
+        })
+        .catch((error) => {
+          debug.error('Failed to initialize player:', error);
+          this.#showError('Failed to initialize player. Please check your configuration.');
+        });
 
 
     } catch (error) {
@@ -561,8 +585,7 @@ class DahuaPlayer extends HTMLElement {
    */
   #toggleVideoFullscreen() {
     if (this.#videoElement.webkitPresentationMode === 'fullscreen') {
-      this.#videoElement.pause();
-      this.#videoElement.srcObject = null;
+      this.#cleanupVideoFullscreen();
       this.#videoElement.webkitExitFullscreen();
       return false;
     }
@@ -591,6 +614,27 @@ class DahuaPlayer extends HTMLElement {
     return true;
   }
 
+  #cleanupVideoFullscreen() {
+    if (!this.#videoElement) {
+      return;
+    }
+
+    const video = this.#videoElement;
+    const stream = video.srcObject;
+
+    if (stream && typeof stream.getTracks === 'function') {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+
+    video.pause();
+    video.srcObject = null;
+    video.style.display = 'none';
+
+    if (document.fullscreenElement === this && document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+
   #toggleElementFullscreen() {
     if (!document.fullscreenElement) {
       this.requestFullscreen();
@@ -609,6 +653,13 @@ class DahuaPlayer extends HTMLElement {
       this.#isPlayerConnected = true;
     } else {
       this.#player.play();
+    }
+
+    if (!this.#isAudioEnabled) {
+      const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
+      if (volumeSlider) {
+        this.setVolume(volumeSlider.value);
+      }
     }
 
     this.#isPlaying = true;

@@ -1,7 +1,4 @@
 import { videoEncoding, debug, decodeMode } from './public1.js';
-import { default as loadFFMPEG } from './Decode/ffmpeg-core.js';
-
-// import { loadFFMPEG } from './Decode/ffmpeg.js';
 
 var videoRtpSessionsArray = []
   , sdpInfo = null
@@ -65,11 +62,8 @@ async function setVideoRtpSession(a) {
 
         if (a.sdpInfo[b].codecName === "H264") {
           if (h264Session === null) {
-            const [ffmpeg, H264Session] = await Promise.all([
-              loadFFMPEG(),
-              import('./h264Session.js').then(m => m.H264Session)
-            ]);
-            h264Session = new H264Session(ffmpeg);
+            const H264Session = await import('./h264Session.js').then(m => m.H264Session);
+            h264Session = new H264Session();
           }
           rtpSession = h264Session;
           rtpSession.init(a.decodeMode);
@@ -79,11 +73,8 @@ async function setVideoRtpSession(a) {
           rtpSession.setLessRate(a.lessRateCanvas);
         } else if (a.sdpInfo[b].codecName === "H265") {
           if (h265Session === null) {
-            const [ffmpeg, H265Session] = await Promise.all([
-              loadFFMPEG(),
-              import('./h265Session.js').then(m => m.H265Session)
-            ]);
-            h265Session = new H265Session(ffmpeg);
+            const H265Session = await import('./h265Session.js').then(m => m.H265Session);
+            h265Session = new H265Session();
           }
           rtpSession = h265Session;
           rtpSession.init();
@@ -139,7 +130,8 @@ function RtpReturnCallback(a) {
     sendMessage("setVideoTagMode", a.decodeMode))),
     null != a.decodeStart && (sendMessage("DecodeStart", a.decodeStart),
     videoEncoding.setMode(a.decodeStart.decodeMode)),
-    null !== b && "undefined" != typeof b)
+    null !== b && "undefined" != typeof b) {
+
         if (void 0 !== b.frameData && null !== b.frameData && "canvas" === decodeMode) {
             b.frameData.firstFrame === !0 && sendMessage("firstFrame", b.frameData.firstFrame);
             var d = {
@@ -166,8 +158,14 @@ function RtpReturnCallback(a) {
             sendMessage("videoTimeStamp", b.timeStamp),
             b.frameData.length > 0 && (sendMessage("mediaSample", b.mediaSample),
             sendMessage("videoRender", b.frameData))
-        } else
-            sendMessage("drop", a.decodedData);
+        } else {
+          sendMessage("drop", a.decodedData);
+        }
+      } else {
+        if (a.nalUnits) {
+          sendMessage("videoDecoderInfo", a.nalUnits);
+        }
+      }
     null != a.resolution && sendMessage("MSEResolutionChanged", a.resolution),
     null != a.ivsDraw && sendMessage("ivsDraw", a)
 }

@@ -1,9 +1,11 @@
 import { debug } from '../debug';
+import { reconstructRtpTimestamp } from './public1.js';
 
 export function IvsSession() {
   function a() {
       this.firstTime = 0,
-      this.lastMSW = 0
+            this.lastMSW = 0,
+            this.lastPacketMsw = null
   }
   function b(a) {
       for (var b = [].slice.call(a), c = "", d = 0; d < b.length; d++)
@@ -865,7 +867,7 @@ export function IvsSession() {
           })
       }
   }
-  var E, F, G = null, H = {
+    var E, F, H = {
       1: "VideoSynopsis",
       2: "TrafficGate",
       3: "ElectronicPolice",
@@ -914,29 +916,17 @@ export function IvsSession() {
           debug.log("init")
       },
       parseRTPData: function(a, b, c, d, e, f) {
-          var g = (b[19] << 24) + (b[18] << 16) + (b[17] << 8) + b[16] >>> 0
-            , h = Date.UTC("20" + (g >> 26), (g >> 22 & 15) - 1, g >> 17 & 31, g >> 12 & 31, g >> 6 & 63, 63 & g) / 1e3;
-          if (h -= 28800,
-          0 == this.firstTime)
-              this.firstTime = h,
-              this.lastMSW = 0,
-              G = (b[21] << 8) + b[20],
-              F = {
-                  timestamp: this.firstTime,
-                  timestamp_usec: 0
-              };
-          else {
-              var i, j = (b[21] << 8) + b[20];
-              i = j >= G ? j - G : j + 65535 - G,
-              this.lastMSW += i,
-              h > this.firstTime && (this.lastMSW -= 1e3),
-              this.firstTime = h,
-              F = {
-                  timestamp: h,
-                  timestamp_usec: this.lastMSW
-              },
-              G = j
-          }
+          var g = reconstructRtpTimestamp(b, {
+              firstTime: this.firstTime,
+              lastMSW: this.lastMSW,
+              lastPacketMsw: this.lastPacketMsw
+          }, {
+              includeEqualOnWrap: true
+          });
+          this.firstTime = g.firstTime,
+          this.lastMSW = g.lastMSW,
+          this.lastPacketMsw = g.lastPacketMsw,
+          F = g.timestamp,
           E = b[5],
           D(E, b, this.rtpReturnCallback, f)
       },

@@ -15,12 +15,13 @@
     "websocket",
     "ws"
   ],
-  "author": "Naveen Sakthivel",
+  "author": "Serhii Stotskyi",
   "license": "MIT",
   "devDependencies": {
     "vite": "^5.3.1"
   },
   "dependencies": {
+    "@yume-chan/scrcpy-decoder-webcodecs": "^2.5.0",
     "cash-dom": "^8.1.5",
     "deepmerge": "^4.3.1"
   }

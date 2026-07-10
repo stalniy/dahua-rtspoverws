@@ -1,45 +1,60 @@
-import { debug } from '../../debug.js';
-export function G711AudioDecoder(a) {
-  function b(a) {
-      var b = 0,
-          c = ~a;
-      return b = ((c & g) << 3) + e, b <<= (c & i) >> h, c & f ? e - b : b - e
+export class G711AudioDecoder {
+  constructor(codecName) {
+      this.codecName = codecName;
+      this.muLawBias = 132;
+      this.signBitMask = 128;
+      this.quantizationMask = 15;
+      this.segmentShift = 4;
+      this.segmentMask = 112;
   }
 
-  function c(a) {
-      var b = 0,
-          c = 0;
-      switch (a ^= 85, b = (a & g) << 4, c = (a & i) >> h) {
-          case 0:
-              b += 8;
-              break;
-          case 1:
-              b += 264;
-              break;
-          default:
-              b += 264, b <<= c - 1
-      }
-      return a & f ? b : -b
+  decodeMuLawSample(encodedByte) {
+      var invertedByte = ~encodedByte;
+      var decodedSample = ((invertedByte & this.quantizationMask) << 3) + this.muLawBias;
+
+      decodedSample <<= (invertedByte & this.segmentMask) >> this.segmentShift;
+
+      return invertedByte & this.signBitMask ? this.muLawBias - decodedSample : decodedSample - this.muLawBias;
   }
 
-  function d() {}
-  var e = 132,
-      f = 128,
-      g = 15,
-      h = 4,
-      i = 112;
-  return d.prototype = {
-      decode: function(d) {
-          var e = new Uint8Array(d),
-              f = new Int16Array(e.length),
-              g = 0;
-          if ("G.711A" == a)
-              for (g = 0; g < e.length; g++) f[g] = c(e[g]);
-          else if ("G.711Mu" == a)
-              for (g = 0; g < e.length; g++) f[g] = b(e[g]);
-          var h = new Float32Array(f.length);
-          for (g = 0; g < f.length; g++) h[g] = f[g] / Math.pow(2, 15);
-          return h
+  decodeALawSample(encodedByte) {
+      var toggledByte = encodedByte ^ 85;
+      var decodedSample = (toggledByte & this.quantizationMask) << 4;
+      var segment = (toggledByte & this.segmentMask) >> this.segmentShift;
+
+      switch (segment) {
+      case 0:
+          decodedSample += 8;
+          break;
+      case 1:
+          decodedSample += 264;
+          break;
+      default:
+          decodedSample += 264;
+          decodedSample <<= segment - 1;
       }
-  }, new d
+
+      return toggledByte & this.signBitMask ? decodedSample : -decodedSample;
+  }
+
+  decode(encodedBytes) {
+      var inputBytes = new Uint8Array(encodedBytes);
+      var pcmSamples = new Int16Array(inputBytes.length);
+
+      for (var sampleIndex = 0; sampleIndex < inputBytes.length; sampleIndex++) {
+          if (this.codecName === 'G.711A') {
+              pcmSamples[sampleIndex] = this.decodeALawSample(inputBytes[sampleIndex]);
+          } else if (this.codecName === 'G.711Mu') {
+              pcmSamples[sampleIndex] = this.decodeMuLawSample(inputBytes[sampleIndex]);
+          }
+      }
+
+      var normalizedSamples = new Float32Array(pcmSamples.length);
+
+      for (var normalizedIndex = 0; normalizedIndex < pcmSamples.length; normalizedIndex++) {
+          normalizedSamples[normalizedIndex] = pcmSamples[normalizedIndex] / Math.pow(2, 15);
+      }
+
+      return normalizedSamples;
+  }
 }

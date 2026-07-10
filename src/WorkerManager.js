@@ -7,8 +7,86 @@ import { debug } from './debug.js';
 import { AudioPlayerGxx, AudioPlayerAAC } from './audioPlayer.js';
 import VideoWorker from './module/videoWorker.js?worker';
 import AudioWorker from './module/audioWorker.js?worker';
+import { WebGLVideoFrameRenderer,
+    BitmapVideoFrameRenderer,
+    WebCodecsVideoDecoder,
+ } from "@yume-chan/scrcpy-decoder-webcodecs"
+ import { ScrcpyVideoCodecId } from "@yume-chan/scrcpy";
 
 export default function WorkerManager() {
+
+let webCodecsPlayStarted = false;
+/**
+ * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
+ */
+let renderer = null;
+
+  const webCodecsDecoder = {
+      decoder: null,
+      writer: null,
+      writeLock: Promise.resolve(),
+      codec: null,
+      normalizeCodec(codecType) {
+          if (!codecType)
+              return ScrcpyVideoCodecId.H265;
+          var value = (codecType + "").toLowerCase();
+          return -1 !== value.indexOf("264") || -1 !== value.indexOf("avc") ? ScrcpyVideoCodecId.H264 : ScrcpyVideoCodecId.H265;
+      },
+      codecTypeName(codecType) {
+          return this.normalizeCodec(codecType) === ScrcpyVideoCodecId.H264 ? "h264" : "h265";
+      },
+      reset() {
+          null !== this.writer && (this.writer.releaseLock(),
+          this.writer = null),
+          null !== this.decoder && (this.decoder.close?.(),
+          this.decoder.dispose?.(),
+          this.decoder = null),
+          this.writeLock = Promise.resolve(),
+          this.codec = null;
+      },
+      enqueueWrite(payload, context) {
+          this.writeLock = this.writeLock.then(() => this.writer.write(payload)).catch((error) => {
+              debug.error("workerManager::videoDecoderInfo " + context + " write failed", error);
+          });
+      },
+      write(data) {
+          const nextCodec = this.normalizeCodec(data.codecType);
+          if (this.decoder && this.codec !== nextCodec)
+              this.reset();
+
+          const needConfiguration = !this.decoder;
+          if (needConfiguration && data.frameType !== "I")
+              return false;
+
+          if (needConfiguration) {
+              this.decoder = new WebCodecsVideoDecoder({
+                  codec: nextCodec,
+                  renderer: renderer
+              });
+              this.codec = nextCodec;
+              this.writer = this.decoder.writable.getWriter();
+              this.enqueueWrite({
+                  type: "configuration",
+                  data: data.rawStream,
+              }, "configuration");
+
+              // New decoder flow requires configuration and the first keyframe data packet.
+              this.enqueueWrite({
+                  type: "data",
+                  keyframe: true,
+                  data: data.rawStream,
+              }, "initial keyframe");
+          } else {
+              this.enqueueWrite({
+                  type: "data",
+                  keyframe: data.frameType === "I",
+                  data: data.rawStream,
+              }, "packet");
+          }
+          return true;
+      }
+  };
+
   function a() {
       O = !0,
       o = this
@@ -76,6 +154,40 @@ export default function WorkerManager() {
           0 === ub && (ub = performance.now(),
           "canvas" === P && C(J.timeStamp));
           break;
+        case "videoDecoderInfo":
+            const data = c.data;
+            const nextCodecType = webCodecsDecoder.codecTypeName(data.codecType);
+
+            // Keep audio buffering state in sync in WebCodecs canvas mode.
+            k(0, "currentTime");
+
+            // Keep parity with the old canvas path: IVS and audio sync depend on J.timeStamp.
+            J = {
+                width: data.width,
+                height: data.height,
+                codecType: nextCodecType,
+                frameType: data.frameType,
+                timeStamp: data.timestamp
+            };
+
+            if (0 === ub && data.timestamp) {
+                ub = performance.now();
+                "canvas" === P && C(data.timestamp);
+            } else if ("canvas" === P && C && data.timestamp) {
+                C(data.timestamp);
+            }
+
+            if (!webCodecsPlayStarted && null !== t) {
+                t();
+                webCodecsPlayStarted = true;
+            }
+
+            if (!webCodecsDecoder.write(data)) {
+                console.error("videoDecoderInfo: frameType is not I");
+                return;
+            }
+
+            break;
       case "time":
           break;
       case "videoTimeStamp":
@@ -232,6 +344,9 @@ export default function WorkerManager() {
     , audioProcessWorker = null
     , n = null
     , o = null
+    /**
+     * @type {StreamDrawer}
+     */
     , p = null
     , q = null
     , r = null
@@ -351,11 +466,14 @@ export default function WorkerManager() {
           videoProcessWorker.onmessage = d,
           audioProcessWorker.onmessage = e;
           var g = f === !0 ? 500 : 15;
-          p = new StreamDrawer(Ab,this,S,g),
-          H = IvsDraw(),
-          p.setResizeCallback(s),
-          yb = document.getElementById("count-fps"),
-          xb = document.getElementById("span-fps")
+          p = new StreamDrawer(Ab,this,S,g);
+          renderer = createVideoFrameRenderer(S);
+          webCodecsDecoder.reset();
+          webCodecsPlayStarted = false;
+          H = IvsDraw();
+          p.setResizeCallback(s);
+          yb = document.getElementById("count-fps");
+          xb = document.getElementById("span-fps");
       },
       async sendSdpInfo(a, b, c) {
           var sdpInfoMessage = {
@@ -720,7 +838,6 @@ export default function WorkerManager() {
           M = a
       },
       setLiveMode: function(a) {
-        console.log("setLiveMode", a);
           null !== y && y(a),
           P = null === a ? "canvas" : a,
           "video" === P ? null !== p && p.renewCanvas() : "canvas" === P && h(!1)
@@ -778,12 +895,16 @@ export default function WorkerManager() {
           Q = a
       },
       initStartTime: function() {
+          if ("canvas" === P) {
+              webCodecsDecoder.reset(),
+              webCodecsPlayStarted = !1
+          }
           var a = {
               type: "initStartTime"
           };
-          videoProcessWorker.postMessage(a),
-          p.stopRendering(),
-          p.startRendering()
+          null !== videoProcessWorker && videoProcessWorker.postMessage(a),
+          null !== p && (p.stopRendering(),
+          p.startRendering())
       },
       terminateAudio() {
         if (audioProcessWorker) {
@@ -837,6 +958,9 @@ export default function WorkerManager() {
               X = null;
           }
 
+          webCodecsDecoder.reset();
+          webCodecsPlayStarted = false;
+
           // Clean up additional components
           if (zb) {
               zb = null;
@@ -852,11 +976,11 @@ export default function WorkerManager() {
       },
       pause: function() {
           X && X.pause(),
-          videoProcessWorker && p.pause()
+          videoProcessWorker && null !== p && p.pause()
       },
       play: function() {
           X && X.play(),
-          videoProcessWorker && p.play()
+          videoProcessWorker && null !== p && p.play()
       },
       setLessRate: function(a) {
           Gb = a
@@ -877,3 +1001,17 @@ function sendWorkerMessageAndWaitForEvent(worker, message, eventName) {
       worker.postMessage(message);
   });
 }
+
+function createVideoFrameRenderer(canvas) {
+    // Uncomment following lines to enable InsertableStreamVideoFrameRenderer, see quirks above
+    // if (InsertableStreamVideoFrameRenderer.isSupported) {
+    //   const renderer = new InsertableStreamVideoFrameRenderer();
+    //   return { renderer, element: renderer.element };
+    // }
+
+    if (WebGLVideoFrameRenderer.isSupported) {
+      return new WebGLVideoFrameRenderer(canvas);
+    }
+
+    return new BitmapVideoFrameRenderer(canvas);
+  }

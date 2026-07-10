@@ -1,6 +1,5 @@
-import { H264Decoder } from './Decode/h264Decoder.js';
 import { mp4Remux } from './mp4remux.js';
-import { VideoBufferList, debug } from './public1.js'
+import { VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
 
 function H264SPSParser() {
     function a() {
@@ -232,7 +231,7 @@ function H264SPSParser() {
     },
     new a
 }
-export function H264Session(ffmpeg) {
+export function H264Session() {
     function a(a) {
         a !== I && ("video" === a ? I = "video" : (I = "canvas",
         o = !0,
@@ -246,10 +245,10 @@ export function H264Session(ffmpeg) {
         d
     }
     function c() {
-        this.decoder = new H264Decoder(ffmpeg),
         this.firstDiffTime = 0,
         this.firstTime = 0,
-        this.lastMSW = 0
+        this.lastMSW = 0,
+        this.lastPacketMsw = null
     }
     var d = 0
       , e = 0
@@ -294,7 +293,6 @@ export function H264Session(ffmpeg) {
       , D = 0
       , E = null
       , F = 0
-      , G = null
       , H = 0
       , I = ""
       , J = null
@@ -372,7 +370,6 @@ export function H264Session(ffmpeg) {
             v = !1,
             h = !1,
             I = a,
-            this.decoder.setIsFirstFrame(!1),
             this.videoBufferList = new VideoBufferList,
             this.firstDiffTime = 0,
             this.checkDelay = !0,
@@ -386,35 +383,21 @@ export function H264Session(ffmpeg) {
         parseRTPData: function(c, g, J, K, L) {
             {
                 var M = null
-                  , Q = {}
-                  , R = (g[19] << 24) + (g[18] << 16) + (g[17] << 8) + g[16] >>> 0
-                  , S = Date.UTC("20" + (R >> 26), (R >> 22 & 15) - 1, R >> 17 & 31, R >> 12 & 31, R >> 6 & 63, 63 & R) / 1e3;
+                  , Q = {};
                 L.timeStampmsw
             }
-            if (S -= 28800,
-            I || 253 !== g[4] || (P = 0 === g[5] ? !1 : !0,
+            if (I || 253 !== g[4] || (P = 0 === g[5] ? !1 : !0,
             I = b(L.width, L.height, P)),
             "" !== I) {
-                if (0 == this.firstTime)
-                    this.firstTime = S,
-                    this.lastMSW = 0,
-                    G = (g[21] << 8) + g[20],
-                    r = {
-                        timestamp: this.firstTime,
-                        timestamp_usec: 0
-                    };
-                else {
-                    var T, U = (g[21] << 8) + g[20];
-                    T = U > G ? U - G : U + 65535 - G,
-                    this.lastMSW += T,
-                    S > this.firstTime && (this.lastMSW -= 1e3),
-                    this.firstTime = S,
-                    r = {
-                        timestamp: S,
-                        timestamp_usec: this.lastMSW
-                    },
-                    G = U
-                }
+                var R = reconstructRtpTimestamp(g, {
+                    firstTime: this.firstTime,
+                    lastMSW: this.lastMSW,
+                    lastPacketMsw: this.lastPacketMsw
+                });
+                this.firstTime = R.firstTime,
+                this.lastMSW = R.lastMSW,
+                this.lastPacketMsw = R.lastPacketMsw,
+                r = R.timestamp,
                 0 !== this.getFramerate() && "undefined" != typeof this.getFramerate() || "undefined" == typeof this.getTimeStamp() || (this.setFramerate(Math.round(1e3 / ((r.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (r.timestamp_usec - this.getTimeStamp().timestamp_usec)))),
                 debug.log("setFramerate" + Math.round(1e3 / ((r.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (r.timestamp_usec - this.getTimeStamp().timestamp_usec))))),
                 this.setTimeStamp(r);
@@ -456,8 +439,7 @@ export function H264Session(ffmpeg) {
                         j = i.getSizeInfo().decodeSize,
                         (null === k || null === l || k.width !== bb.width || k.height !== bb.height || l !== i.getCodecInfo()) && (v = !1,
                         k = bb,
-                        l = i.getCodecInfo(),
-                        this.decoder.setIsFirstFrame(!1)),
+                        l = i.getCodecInfo()),
                         A = x = bb.width,
                         B = y = bb.height,
                         t = M,
@@ -499,19 +481,21 @@ export function H264Session(ffmpeg) {
                     },
                     this.rtpReturnCallback(Q))),
                     E = cb,
-                    f !== j && (this.decoder.free(),
-                    f = j,
-                    this.decoder.setOutputSize(f)),
+                    f !== j && (f = j),
                     o === !0 && "P" === $)
                         return void (e = 0);
                     o === !0 && (o = !1),
                     "I" === $ && 2 > p && p++,
-                    q.frameData = null,
-                    (J !== !0 || h !== !0) && (q.frameData = this.decoder.decode(W)),
-                    q.timeStamp = null,
-                    e = 0,
                     r = null === r.timestamp ? this.getTimeStamp() : r,
-                    q.timeStamp = r
+                    x.nalUnits = {
+                        frameType: $,
+                        width: A,
+                        height: B,
+                        codecType: "h264",
+                        timestamp: r,
+                        rawStream: new Uint8Array(W)
+                    },
+                    e = 0
                 } else {
                     var db = null;
                     if (v)
@@ -591,7 +575,7 @@ export function H264Session(ffmpeg) {
                     Q.decodeMode = "canvas")
                 }
                 return q.playback = h,
-                Q.decodedData = q,
+                Q.decodedData = "canvas" === I ? null : q,
                 C === !0 ? ("I" === $ && D++,
                 2 === D && (D = 0,
                 C = !1),
@@ -599,16 +583,7 @@ export function H264Session(ffmpeg) {
             }
         },
         findIFrame: function() {
-            if (null !== this.videoBufferList) {
-                var a = this.videoBufferList.findIFrame();
-                if (null === a || "undefined" == typeof a)
-                    return !1;
-                var b = {};
-                return this.setTimeStamp(a.timeStamp),
-                b.frameData = this.decoder.decode(a.buffer),
-                b.timeStamp = a.timeStamp,
-                b
-            }
+            return !1
         },
         setLessRate: function(a) {
             Q = a
@@ -618,9 +593,7 @@ export function H264Session(ffmpeg) {
             k = null,
             l = null
         },
-        terminate() {
-            this.decoder.close();
-        }
+        terminate() {}
     },
     new c
 };
