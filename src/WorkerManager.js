@@ -19,13 +19,84 @@ let webCodecsPlayStarted = false;
 let webCodecsUnsupportedNotified = false;
 let waitingForKeyframeNotified = false;
 let audioUnlockRequested = false;
+let hevcDecoderMode = "wasm";
+let hevcDecoderModePromise = Promise.resolve("wasm");
+let requestedDecodeMode = "canvas";
 /**
  * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
  */
 let renderer = null;
 
+function hasSecureWebCodecsContext() {
+    return !("boolean" == typeof globalThis.isSecureContext) || globalThis.isSecureContext;
+}
+
+function hasWebCodecsSupport() {
+    return hasSecureWebCodecsContext() && "function" == typeof globalThis.VideoDecoder;
+}
+
+function ensureVideoFrameRenderer(canvas) {
+    if (null === renderer)
+        renderer = createVideoFrameRenderer(canvas);
+
+    return renderer;
+}
+
 function canUseWebCodecs() {
-    return "function" == typeof globalThis.VideoDecoder && null !== renderer;
+    return hasWebCodecsSupport();
+}
+
+async function detectHevcDecoderMode() {
+    if (!hasSecureWebCodecsContext()) {
+        console.warn("WebCodecs requires a secure context. Falling back to the WASM H.265 decoder.");
+        return "wasm";
+    }
+
+    if (!hasWebCodecsSupport())
+        return "wasm";
+
+    const supportProbe = globalThis.VideoDecoder?.isConfigSupported;
+    if ("function" == typeof supportProbe) {
+        const codecCandidates = [
+            "hev1.1.6.L93.B0",
+            "hvc1.1.6.L93.B0",
+            "hev1.1.6.L120.B0",
+            "hvc1.1.6.L120.B0",
+        ];
+
+        for (const codec of codecCandidates)
+            try {
+                const result = await supportProbe.call(globalThis.VideoDecoder, {
+                    codec: codec,
+                    optimizeForLatency: true,
+                });
+
+                if (result?.supported)
+                    return "webcodecs";
+            } catch (error) {
+                debug.log("HEVC support probe failed for codec " + codec, error);
+            }
+    }
+
+    console.warn("HEVC WebCodecs support could not be verified. Falling back to the WASM decoder.");
+    return "wasm";
+}
+
+function supportsCanvasDecodeForTracks(tracks) {
+    if (canUseWebCodecs())
+        return !0;
+
+    if (!Array.isArray(tracks))
+        return !1;
+
+    return tracks.some((track) => track && "H265" === track.codecName) && "wasm" === hevcDecoderMode;
+}
+
+function resolveDecodeModeForTracks(tracks) {
+    if ("canvas" !== requestedDecodeMode)
+        return requestedDecodeMode;
+
+    return supportsCanvasDecodeForTracks(tracks) ? "canvas" : "video";
 }
 
   const webCodecsDecoder = {
@@ -89,9 +160,10 @@ function canUseWebCodecs() {
               if (!configuration || 0 === configuration.length)
                   return "missing-configuration";
               try {
+                  const nextRenderer = ensureVideoFrameRenderer(S);
                   this.decoder = new WebCodecsVideoDecoder({
                       codec: nextCodec,
-                      renderer: renderer
+                      renderer: nextRenderer
                   });
               } catch (error) {
                   debug.error("workerManager::videoDecoderInfo decoder init failed", error);
@@ -132,6 +204,40 @@ function canUseWebCodecs() {
   }
   function c() {
       null !== z && z(!1)
+  }
+  function applyLiveMode(a, b) {
+      const nextMode = null === a ? "canvas" : a;
+      const previousMode = P;
+
+      b && (requestedDecodeMode = nextMode);
+      null !== y && y(nextMode),
+      P = nextMode;
+
+      if (previousMode === P)
+          return;
+
+      if ("video" === P) {
+          null !== p && p.stopRendering();
+          return;
+      }
+
+      "canvas" === P && h(!1)
+  }
+  function requestH265WasmFallback() {
+      if ("wasm" === hevcDecoderMode)
+          return;
+
+      hevcDecoderMode = "wasm",
+      webCodecsDecoder.reset(),
+      waitingForKeyframeNotified = !1,
+      applyLiveMode("canvas", !1),
+      null !== videoProcessWorker && videoProcessWorker.postMessage({
+          type: "setH265DecoderMode",
+          data: {
+              mode: "wasm"
+          }
+      }),
+      console.warn("Switching H.265 decoding to the WASM fallback decoder.");
   }
   function d(b) {
       var c = b.data;
@@ -228,6 +334,11 @@ function canUseWebCodecs() {
 
             const writeResult = webCodecsDecoder.write(data);
             if ("ok" !== writeResult) {
+                if ("h265" === nextCodecType && ("init-failed" === writeResult || "unsupported" === writeResult)) {
+                    requestH265WasmFallback();
+                    return;
+                }
+
                 if ("need-keyframe" === writeResult) {
                     if (!waitingForKeyframeNotified) {
                         waitingForKeyframeNotified = true;
@@ -569,7 +680,11 @@ function canUseWebCodecs() {
           audioProcessWorker.onmessage = e;
           var g = f === !0 ? 500 : 15;
           p = new StreamDrawer(Ab,this,S,g);
-          renderer = createVideoFrameRenderer(S);
+          renderer = null;
+          hevcDecoderModePromise = detectHevcDecoderMode().then((mode) => {
+              hevcDecoderMode = mode;
+              return mode;
+          });
           webCodecsDecoder.reset();
           webCodecsPlayStarted = false;
           webCodecsUnsupportedNotified = false;
@@ -580,12 +695,16 @@ function canUseWebCodecs() {
           xb = document.getElementById("span-fps");
       },
       async sendSdpInfo(a, b, c) {
+          hevcDecoderMode = await hevcDecoderModePromise;
+          applyLiveMode(resolveDecodeModeForTracks(a), !1);
+
           var sdpInfoMessage = {
               type: "sdpInfo",
               data: {
                   sdpInfo: a,
                   aacCodecInfo: b,
                   decodeMode: P,
+                  h265DecoderMode: hevcDecoderMode,
                   govLength: M,
                   lessRateCanvas: Gb,
                   checkDelay: Q
@@ -944,22 +1063,7 @@ function canUseWebCodecs() {
           M = a
       },
       setLiveMode: function(a) {
-          const requestedMode = null === a ? "canvas" : a;
-          const effectiveMode = "canvas" === requestedMode && !canUseWebCodecs() ? "video" : requestedMode;
-          const previousMode = P;
-
-          null !== y && y(effectiveMode),
-          P = effectiveMode;
-
-          if (previousMode === P)
-              return;
-
-          if ("video" === P) {
-              null !== p && p.stopRendering();
-              return;
-          }
-
-          "canvas" === P && h(!1)
+          applyLiveMode(a, !0)
       },
       setPlayMode: function(a) {
           W = a
@@ -1080,6 +1184,7 @@ function canUseWebCodecs() {
               q.terminate();
               q = null;
           }
+          renderer = null;
 
           // Terminate video media source
           if (X) {

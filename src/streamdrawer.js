@@ -1,5 +1,8 @@
 import {
   ImageWebGLCanvas,
+  PlanarYuvWebGLCanvas,
+  Canvas2dImageCanvas,
+  PlanarYuvCanvas2d,
 } from "./module/WebGLCanvas";
 import { debug } from "./debug.js";
 import { base64ArrayBuffer } from "./module/public1.js";
@@ -11,6 +14,9 @@ function BufferNode(a) {
     this.next = null
 }
 function StreamDrawer(a, b, c, d) {
+    function supportsPlanarYuvRenderer(a) {
+        return "PlanarYuvWebGL" === a || "PlanarYuvCanvas2d" === a
+    }
     function e() {
         function a() {
             this.first = null,
@@ -57,7 +63,8 @@ function StreamDrawer(a, b, c, d) {
         u = null,
         R = new e,
         t = J,
-        I = !1
+        I = !1,
+        aa = null
     }
     function g(a, b) {
         a > 0 && b > 0 && (o.width = a,
@@ -99,6 +106,7 @@ function StreamDrawer(a, b, c, d) {
       , s = null
       , t = null
       , u = null
+      , aa = null
       , v = null
       , w = null
       , x = null
@@ -135,9 +143,16 @@ function StreamDrawer(a, b, c, d) {
         return a
     }()
       , R = null
-      , S = function(a, b) {
-        var c = new Size(a,b);
-        p = new ImageWebGLCanvas(o,c)
+      , S = function(a, b, c) {
+        var size = new Size(a,b);
+        aa = c && "undefined" != typeof c.ylen ? "PlanarYuvWebGL" : "ImageWebGL";
+        try {
+            p = "PlanarYuvWebGL" === aa ? new PlanarYuvWebGLCanvas(o, size) : new ImageWebGLCanvas(o, size)
+        } catch (d) {
+            debug.error("Primary canvas renderer init failed, using 2D fallback", d),
+            aa = "PlanarYuvWebGL" === aa ? "PlanarYuvCanvas2d" : "Canvas2dImageCanvas",
+            p = "PlanarYuvCanvas2d" === aa ? new PlanarYuvCanvas2d(o, size) : new Canvas2dImageCanvas(o, size)
+        }
     }
       , T = function(a) {
         var b = a.document
@@ -246,8 +261,11 @@ function StreamDrawer(a, b, c, d) {
         F = R.dequeue();
         const isVideoFrame = window.VideoFrame && F && F.buffer instanceof VideoFrame;
         if (null !== F && null !== F.buffer && ("mjpeg" === F.codecType || isVideoFrame || F.buffer.length > 0)) {
-            ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType) && (s = "ImageWebGL",
-            S(F.width, F.height),
+            var shouldUsePlanarYuv = !!(F.option && "undefined" != typeof F.option.ylen)
+              , rendererTypeMismatch = shouldUsePlanarYuv ? !supportsPlanarYuvRenderer(aa) : supportsPlanarYuvRenderer(aa);
+            ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType || rendererTypeMismatch) && (
+            S(F.width, F.height, F.option),
+            s = aa,
             ("undefined" == q || null == q || 0 == q) && w("PlayStart"),
             "mjpeg" !== F.codecType && g(F.option.realWidth, F.option.realHeight),
             q = F.width,
@@ -320,13 +338,14 @@ function StreamDrawer(a, b, c, d) {
         draw(frameBuffer, width, height, codecType, frameType, timestamp, options) {
             // If not using buffered rendering, draw immediately
             if (m === false) {
+                const shouldUsePlanarYuv = !!(options && "undefined" != typeof options.ylen);
+                const rendererTypeMismatch = shouldUsePlanarYuv ? !supportsPlanarYuvRenderer(aa) : supportsPlanarYuvRenderer(aa);
                 // Check if canvas dimensions or codec type changed, reinitialize if needed
                 if ((typeof q === "undefined" || typeof r === "undefined" ||
-                     q !== width || r !== height || u !== codecType)) {
+                     q !== width || r !== height || u !== codecType || rendererTypeMismatch)) {
 
-                    // StreamDrawer now uses ImageWebGL fallback only; codec-specific decode is handled upstream.
-                    s = "ImageWebGL";
-                    S(width, height);
+                    S(width, height, options);
+                    s = aa;
                     q = width;
                     r = height;
                     u = codecType;
@@ -340,7 +359,7 @@ function StreamDrawer(a, b, c, d) {
 
                 // Draw the frame if drawer is available
                 if (typeof p !== "undefined") {
-                    p.drawCanvas(frameBuffer);
+                    p.drawCanvas(frameBuffer, options);
                     o.updatedCanvas = true;
 
                     // Handle screenshot capture if requested

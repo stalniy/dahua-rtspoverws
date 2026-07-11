@@ -1,5 +1,7 @@
 "use strict";
 import { VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
+import createFFmpegCore from './Decode/ffmpeg-core.js';
+import { H265Decoder } from './Decode/h265Decoder.js';
 
 
 function H265SPSParser() {
@@ -309,7 +311,7 @@ export function H265Session() {
     }, l = 0, m = 0, n = null, o = 0, p = 0, q = 0, r = 0, s = {
         width: 0,
         height: 0
-    }, t = 0, u = 8e3, v = 0, w = null;
+    }, t = 0, u = 8e3, v = 0, w = null, x = "webcodecs", y = null, z = null;
     return a.prototype = {
         setReturnCallback: function(a) {
             this.rtpReturnCallback = a
@@ -361,24 +363,33 @@ export function H265Session() {
         setCheckDelay: function(a) {
             this.checkDelay = a
         },
-        init: function() {
+        setDecoderMode: async function(a) {
+            x = "wasm" === a ? "wasm" : "webcodecs",
+            z && (z.close(),
+            z = null),
+            "wasm" === x && (null === y && (y = await createFFmpegCore()),
+            z = new H265Decoder(y),
+            z.init())
+        },
+        init: async function(a) {
             this.videoBufferList = new VideoBufferList,
             this.firstDiffTime = 0,
             this.checkDelay = !0,
             this.timeData = null,
-            w = null
+            w = null,
+            await this.setDecoderMode(a)
         },
         parseRTPData: function(a, n, o, p, q) {
-            var x = {};
-            var y = reconstructRtpTimestamp(n, {
+            var A = {};
+            var B = reconstructRtpTimestamp(n, {
                 firstTime: this.firstTime,
                 lastMSW: this.lastMSW,
                 lastPacketMsw: this.lastPacketMsw
             });
-            this.firstTime = y.firstTime,
-            this.lastMSW = y.lastMSW,
-            this.lastPacketMsw = y.lastPacketMsw,
-            k = y.timestamp,
+            this.firstTime = B.firstTime,
+            this.lastMSW = B.lastMSW,
+            this.lastPacketMsw = B.lastPacketMsw,
+            k = B.timestamp,
             0 !== this.getFramerate() && "undefined" != typeof this.getFramerate() || "undefined" == typeof this.getTimeStamp() || (this.setFramerate(Math.round(1e3 / ((k.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (k.timestamp_usec - this.getTimeStamp().timestamp_usec)))),
             debug.log("setFramerate" + Math.round(1e3 / ((k.timestamp - this.getTimeStamp().timestamp === 0 ? 0 : 1e3) + (k.timestamp_usec - this.getTimeStamp().timestamp_usec))))),
             this.setTimeStamp(k);
@@ -407,13 +418,13 @@ export function H265Session() {
                     m = L.height;
                     (s.width != L.width || s.height != L.height) && (0 != s.width ? (s.width = L.width,
                     s.height = L.height,
-                    x.resolution = s,
-                    x.resolution.decodeMode = "canvas",
-                    x.resolution.encodeMode = "h265") : (s.width = L.width,
+                    A.resolution = s,
+                    A.resolution.decodeMode = "canvas",
+                    A.resolution.encodeMode = "h265") : (s.width = L.width,
                     s.height = L.height,
-                    x.decodeStart = s,
-                    x.decodeStart.decodeMode = "canvas",
-                    x.decodeStart.encodeMode = "h265"));
+                    A.decodeStart = s,
+                    A.decodeStart.decodeMode = "canvas",
+                    A.decodeStart.encodeMode = "h265"));
                     break;
                 case 32: // VPS
                 case 34: // PPS
@@ -443,10 +454,10 @@ export function H265Session() {
             t = Date.now() - O - this.firstDiffTime,
             0 > t && (this.firstDiffTime = 0,
             t = 0),
-            t > u && (x.error = {
+            t > u && (A.error = {
                 errorCode: 101
             },
-            this.rtpReturnCallback(x))),
+            this.rtpReturnCallback(A))),
             v = O,
             j.frameData = null;
 
@@ -456,28 +467,41 @@ export function H265Session() {
             k = null === k.timestamp ? this.getTimeStamp() : k,
             j.timeStamp = k;
 
-            null !== M && null !== N && (x.nalUnits = {
-                frameType: N,
-                width: l,
-                height: m,
-                codecType: "h265",
-                timestamp: k,
-                configuration: null !== w ? new Uint8Array(w) : null,
-                rawStream: new Uint8Array(M)
-            });
+            if (null !== M && null !== N)
+                if ("wasm" === x) {
+                    if (null !== z && h > 0) {
+                        z.setOutputSize(h);
+                        var P = z.decode(new Uint8Array(b), N);
+                        P && (j.frameData = P,
+                        j.timeStamp = k,
+                        A.decodedData = {
+                            frameData: P,
+                            timeStamp: k
+                        })
+                    }
+                } else
+                    A.nalUnits = {
+                        frameType: N,
+                        width: l,
+                        height: m,
+                        codecType: "h265",
+                        timestamp: k,
+                        configuration: null !== w ? new Uint8Array(w) : null,
+                        rawStream: new Uint8Array(M)
+                    };
 
             // Optional: Keep backup data for fallback
-            o && (x.backupData = {
+            o && (A.backupData = {
                 stream: new Uint8Array(b), // Create copy for transfer
                 frameType: N,
                 width: l,
                 height: m,
                 codecType: "h265"
             },
-            null !== k.timestamp && "undefined" != typeof k.timestamp ? x.backupData.timestamp_usec = k.timestamp_usec : x.backupData.timestamp = (c / 90).toFixed(0));
+            null !== k.timestamp && "undefined" != typeof k.timestamp ? A.backupData.timestamp_usec = k.timestamp_usec : A.backupData.timestamp = (c / 90).toFixed(0));
 
             // Send NAL units back to main thread
-            this.rtpReturnCallback(x);
+            this.rtpReturnCallback(A);
 
             // console.log('Sending NAL units to main thread:', {
             //     nalCount: nalUnits.length,
@@ -505,7 +529,10 @@ export function H265Session() {
         setTimeStamp: function(a) {
             this.timeData = a
         },
-        terminate() {}
+        terminate() {
+            z && (z.close(),
+            z = null)
+        }
     },
     new a
 };

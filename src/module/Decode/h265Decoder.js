@@ -47,28 +47,42 @@ export class H265Decoder {
           debug.log('decode result', decodeResult);
 
           var decodingTime = Date.now() - decodeStartedAt;
-          var yLength = this.module._getYLength(framePointer);
+          var frameWidth = this.module._getWidth(framePointer);
+          var yStride = this.module._getYLength(framePointer);
+          var uStride = this.module._getULength(framePointer);
+          var vStride = this.module._getVLength(framePointer);
           var frameHeight = this.module._getHeight(framePointer);
+          var chromaHeight = Math.max(1, frameHeight >> 1);
+          var totalLength = yStride * frameHeight + uStride * chromaHeight + vStride * chromaHeight;
+
+          if (frameWidth <= 0 || yStride <= 0 || frameHeight <= 0 || totalLength <= 0) {
+              return;
+          }
 
           if (!this.isFirstFrame()) {
               this.setIsFirstFrame(true);
               return {
-                  firstFrame: true
+                  firstFrame: true,
+                  width: frameWidth,
+                  height: frameHeight,
+                  codecType: 'h265',
+                  frameType: frameType
               };
           }
 
-          if (yLength <= 0 || frameHeight <= 0) {
-              return;
-          }
+          var compactPlaneData = this.copyFramePlanes(frameWidth, frameHeight, yStride, uStride, vStride);
 
           return {
-              data: new Uint8Array(this.outputBufferView),
+              data: compactPlaneData.data,
               option: {
-                  ylen: yLength,
+                  width: frameWidth,
+                  ylen: compactPlaneData.ylen,
+                  ulen: compactPlaneData.ulen,
+                  vlen: compactPlaneData.vlen,
                   height: frameHeight,
                   beforeDecoding: Date.now()
               },
-              width: yLength,
+              width: frameWidth,
               height: frameHeight,
               codecType: 'h265',
               decodingTime: decodingTime,
@@ -77,6 +91,46 @@ export class H265Decoder {
       } finally {
           this.module._FrameFree(framePointer);
       }
+  }
+
+  copyFramePlanes(frameWidth, frameHeight, yStride, uStride, vStride) {
+      var chromaHeight = Math.max(1, frameHeight >> 1);
+      var chromaWidth = Math.max(1, frameWidth >> 1);
+      var compactYLength = frameWidth * frameHeight;
+      var compactULength = chromaWidth * chromaHeight;
+      var compactVLength = chromaWidth * chromaHeight;
+      var compactData = new Uint8Array(compactYLength + compactULength + compactVLength);
+      var sourceOffset = 0;
+      var targetOffset = 0;
+
+      for (var row = 0; row < frameHeight; row++) {
+          var sourceRowOffset = sourceOffset + row * yStride;
+          compactData.set(this.outputBufferView.subarray(sourceRowOffset, sourceRowOffset + frameWidth), targetOffset);
+          targetOffset += frameWidth;
+      }
+
+      sourceOffset += yStride * frameHeight;
+
+      for (var row = 0; row < chromaHeight; row++) {
+          var sourceRowOffset = sourceOffset + row * uStride;
+          compactData.set(this.outputBufferView.subarray(sourceRowOffset, sourceRowOffset + chromaWidth), targetOffset);
+          targetOffset += chromaWidth;
+      }
+
+      sourceOffset += uStride * chromaHeight;
+
+      for (var row = 0; row < chromaHeight; row++) {
+          var sourceRowOffset = sourceOffset + row * vStride;
+          compactData.set(this.outputBufferView.subarray(sourceRowOffset, sourceRowOffset + chromaWidth), targetOffset);
+          targetOffset += chromaWidth;
+      }
+
+      return {
+          data: compactData,
+          ylen: frameWidth,
+          ulen: chromaWidth,
+          vlen: chromaWidth
+      };
   }
 
   setIsFirstFrame(isFirstFrame) {

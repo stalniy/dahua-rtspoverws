@@ -58,6 +58,13 @@ function receiveMessage(message) {
         session && session.initStartTime();
         break;
     }
+    case "setH265DecoderMode":
+        if (h265Session && "function" == typeof h265Session.setDecoderMode) {
+            h265Session.setDecoderMode(payload.data.mode).catch((error) => {
+                debug.error("Failed to switch H265 decoder mode", error);
+            });
+        }
+        break;
     case "terminate":
         videoRtpSessionsArray.forEach(rtpSession => {
             rtpSession.terminate();
@@ -94,7 +101,7 @@ async function setVideoRtpSession(a) {
             h265Session = new H265Session();
           }
           rtpSession = h265Session;
-          rtpSession.init();
+          await rtpSession.init(a.h265DecoderMode);
           rtpSession.setFramerate(a.sdpInfo[b].Framerate);
           rtpSession.setGovLength(a.govLength);
           rtpSession.setCheckDelay(a.checkDelay);

@@ -25,6 +25,8 @@ function makeFrustum(a, b, c, d, e, f) {
     , l = -2 * f * e / (f - e);
   return $M([[g, 0, i, 0], [0, h, j, 0], [0, 0, k, l], [0, 0, -1, 0]])
 }
+var defaultVertexShader = Script.createFromSource("x-shader/x-vertex", text(["attribute vec3 aVertexPosition;", "attribute vec2 aTextureCoord;", "uniform mat4 uMVMatrix;", "uniform mat4 uPMatrix;", "varying highp vec2 vTextureCoord;", "void main(void) {", "  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);", "  vTextureCoord = aTextureCoord;", "}"]))
+  , defaultImageFragmentShader = Script.createFromSource("x-shader/x-fragment", text(["precision highp float;", "varying highp vec2 vTextureCoord;", "uniform sampler2D texture;", "void main(void) {", "  gl_FragColor = texture2D(texture, vTextureCoord);", "}"]));
 var ImageTexture = function() {
   function a(a, b, c) {
       Texture.call(this, a, b, c)
@@ -34,6 +36,19 @@ var ImageTexture = function() {
           var c = this.gl;
           c.bindTexture(c.TEXTURE_2D, this.texture),
           b ? c.texSubImage2D(c.TEXTURE_2D, 0, 0, 0, this.size.w, this.size.h, this.format, c.UNSIGNED_BYTE, a) : c.texImage2D(c.TEXTURE_2D, 0, this.format, this.format, c.UNSIGNED_BYTE, a)
+      }
+  }),
+  a
+}()
+, YuvTexture = function() {
+  function a(a, b) {
+      Texture.call(this, a, b, a.LUMINANCE)
+  }
+  return a.prototype = inherit(Texture, {
+      fill: function(a, b) {
+          var c = this.gl;
+          c.bindTexture(c.TEXTURE_2D, this.texture),
+          b ? c.texSubImage2D(c.TEXTURE_2D, 0, 0, 0, this.size.w, this.size.h, this.format, c.UNSIGNED_BYTE, a) : c.texImage2D(c.TEXTURE_2D, 0, this.format, this.size.w, this.size.h, 0, this.format, c.UNSIGNED_BYTE, a)
       }
   }),
   a
@@ -103,8 +118,6 @@ var ImageTexture = function() {
       g.call(this),
       this.framebuffer && a.bindFramebuffer(a.FRAMEBUFFER, this.framebuffer)
   }
-  var i = Script.createFromSource("x-shader/x-vertex", text(["attribute vec3 aVertexPosition;", "attribute vec2 aTextureCoord;", "uniform mat4 uMVMatrix;", "uniform mat4 uPMatrix;", "varying highp vec2 vTextureCoord;", "void main(void) {", "  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);", "  vTextureCoord = aTextureCoord;", "}"]))
-    , j = Script.createFromSource("x-shader/x-fragment", text(["precision highp float;", "varying highp vec2 vTextureCoord;", "uniform sampler2D texture;", "void main(void) {", "  gl_FragColor = texture2D(texture, vTextureCoord);", "}"]));
   return a.prototype = {
       toString: function() {
           return "WebGLCanvas Size: " + this.size
@@ -120,11 +133,14 @@ var ImageTexture = function() {
       },
       onInitWebGL: function() {
           try {
-              this.gl = this.canvas.getContext("webgl")
+              this.gl = this.canvas.getContext("webgl") || this.canvas.getContext("experimental-webgl")
           } catch (a) {
               debug.log("inInitWebGL error = " + a)
           }
-          if (this.gl || debug.error("Unable to initialize WebGL. Your browser may not support it."),
+          if (!this.gl)
+              throw debug.error("Unable to initialize WebGL. Your browser may not support it."),
+              new Error("WebGL context is unavailable");
+          if (
           !this.glNames) {
               this.glNames = {};
               for (var b in this.gl)
@@ -133,8 +149,8 @@ var ImageTexture = function() {
       },
       onInitShaders: function() {
           this.program = new Program(this.gl),
-          this.program.attach(new Shader(this.gl,i)),
-          this.program.attach(new Shader(this.gl,j)),
+          this.program.attach(new Shader(this.gl,defaultVertexShader)),
+          this.program.attach(new Shader(this.gl,defaultImageFragmentShader)),
           this.program.link(),
           this.program.use(),
           this.vertexPositionAttribute = this.program.getAttributeLocation("aVertexPosition"),
@@ -204,4 +220,162 @@ var ImageTexture = function() {
   a
 }();
 
-export { WebGLCanvas, ImageWebGLCanvas };
+var Canvas2dImageCanvas = function() {
+  function a(a, b) {
+      this.canvas = a,
+      this.context = a.getContext("2d", {
+          alpha: !1,
+          desynchronized: !0
+      }),
+      this.canvas.width = b.w,
+      this.canvas.height = b.h;
+      if (!this.context)
+          throw new Error("2D canvas context is unavailable");
+  }
+  return a.prototype = {
+      drawCanvas: function(a) {
+          this.context.drawImage(a, 0, 0, this.canvas.width, this.canvas.height)
+      },
+      initCanvas: function() {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      },
+      clearCanvas: function() {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      },
+      updateVertexArray: function() {}
+  },
+  a
+}();
+
+var PlanarYuvWebGLCanvas = function() {
+  function a(a, b) {
+      WebGLCanvas.call(this, a, b)
+  }
+  var b = Script.createFromSource("x-shader/x-fragment", text([
+      "precision highp float;",
+      "varying highp vec2 vTextureCoord;",
+      "uniform sampler2D yTexture;",
+      "uniform sampler2D uTexture;",
+      "uniform sampler2D vTexture;",
+      "const mat4 YUV2RGB = mat4(",
+      "  1.16438,  0.00000,  1.59603, -0.87079,",
+      "  1.16438, -0.39176, -0.81297,  0.52959,",
+      "  1.16438,  2.01723,  0.00000, -1.08139,",
+      "  0.00000,  0.00000,  0.00000,  1.00000",
+      ");",
+      "void main(void) {",
+      "  gl_FragColor = vec4(",
+      "    texture2D(yTexture, vTextureCoord).x,",
+      "    texture2D(uTexture, vTextureCoord).x,",
+      "    texture2D(vTexture, vTextureCoord).x,",
+      "    1.0",
+      "  ) * YUV2RGB;",
+      "}"
+  ]));
+  return a.prototype = inherit(WebGLCanvas, {
+      onInitShaders: function() {
+          this.program = new Program(this.gl),
+          this.program.attach(new Shader(this.gl, defaultVertexShader)),
+          this.program.attach(new Shader(this.gl, b)),
+          this.program.link(),
+          this.program.use(),
+          this.vertexPositionAttribute = this.program.getAttributeLocation("aVertexPosition"),
+          this.gl.enableVertexAttribArray(this.vertexPositionAttribute),
+          this.textureCoordAttribute = this.program.getAttributeLocation("aTextureCoord"),
+          this.gl.enableVertexAttribArray(this.textureCoordAttribute)
+      },
+      onInitTextures: function() {
+          var a = this.gl
+            , b = this.size.getHalfSize();
+          this.setViewport(this.canvas.width, this.canvas.height),
+          this.yTexture = new YuvTexture(a, this.size),
+          this.uTexture = new YuvTexture(a, b),
+          this.vTexture = new YuvTexture(a, b)
+      },
+      onInitSceneTextures: function() {
+          this.yTexture.bind(0, this.program, "yTexture"),
+          this.uTexture.bind(1, this.program, "uTexture"),
+          this.vTexture.bind(2, this.program, "vTexture")
+      },
+      drawCanvas: function(a, b) {
+          if (!b || "undefined" == typeof b.ylen)
+              return;
+          var c = b.ylen * b.height
+            , d = (b.ulen || (b.ylen >> 1)) * (b.height >> 1)
+            , e = (b.vlen || (b.ylen >> 1)) * (b.height >> 1)
+            , f = a.subarray(0, c)
+            , g = a.subarray(c, c + d)
+            , h = a.subarray(c + d, c + d + e);
+          this.yTexture.fill(f, !0),
+          this.uTexture.fill(g, !0),
+          this.vTexture.fill(h, !0),
+          this.drawScene()
+      },
+      initCanvas: function() {
+          this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT)
+      }
+  }),
+  a
+}();
+
+var PlanarYuvCanvas2d = function() {
+  function a(a, b) {
+      this.canvas = a,
+      this.context = a.getContext("2d", {
+          alpha: !1,
+          desynchronized: !0
+      }),
+      this.canvas.width = b.w,
+      this.canvas.height = b.h,
+      this.imageData = null;
+      if (!this.context)
+          throw new Error("2D canvas context is unavailable");
+  }
+  function b(a) {
+      return a < 0 ? 0 : a > 255 ? 255 : a
+  }
+  return a.prototype = {
+      drawCanvas: function(a, c) {
+          if (!c || "undefined" == typeof c.ylen)
+              return;
+          var d = this.canvas.width
+            , e = this.canvas.height
+            , f = c.ylen * c.height
+            , g = (c.ulen || (c.ylen >> 1)) * (c.height >> 1)
+            , h = (c.vlen || (c.ylen >> 1)) * (c.height >> 1)
+            , i = a.subarray(0, f)
+            , j = a.subarray(f, f + g)
+            , k = a.subarray(f + g, f + g + h)
+            , l = this.imageData;
+          (!l || l.width !== d || l.height !== e) && (l = this.context.createImageData(d, e),
+          this.imageData = l);
+          for (var m = l.data, n = 0, o = 0; e > o; o++)
+              for (var p = o >> 1, q = 0; d > q; q++) {
+                  var r = i[n]
+                    , s = (p * (d >> 1) + (q >> 1))
+                    , t = j[s]
+                    , u = k[s]
+                    , v = 1.16438 * r + 1.59603 * u - 222.92157
+                    , w = 1.16438 * r - 0.39176 * t - 0.81297 * u + 135.57529
+                    , x = 1.16438 * r + 2.01723 * t - 276.83585
+                    , y = 4 * n;
+                  m[y] = b(v),
+                  m[y + 1] = b(w),
+                  m[y + 2] = b(x),
+                  m[y + 3] = 255,
+                  n += 1
+              }
+          this.context.putImageData(l, 0, 0)
+      },
+      initCanvas: function() {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      },
+      clearCanvas: function() {
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      },
+      updateVertexArray: function() {}
+  },
+  a
+}();
+
+export { WebGLCanvas, ImageWebGLCanvas, PlanarYuvWebGLCanvas, Canvas2dImageCanvas, PlanarYuvCanvas2d };
