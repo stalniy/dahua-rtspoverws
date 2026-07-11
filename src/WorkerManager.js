@@ -374,13 +374,14 @@ function canUseWebCodecs() {
       X.setInitSegmentFunc(b),
       X.setVideoSizeCallback(c),
       X.setBeginDrawCallback(t),
-      X.init(eb),
       X.setErrorCallback(A),
       X.setSpeedPlay(jb),
       X.setPlaybackFlag(W),
-      X.setFPS(L)) : (X.getVideoElement(),
+      X.setFPS(L),
+      X.setAudioStartCallback(k),
+      X.init(eb) === !1 && (X = null)) : (X.getVideoElement(),
       X.setInitSegment()),
-      X.setAudioStartCallback(k)
+      null !== X && X.setAudioStartCallback(k)
   }
   function k(a, b) {
       null !== q && q.setBufferingFlag(a, b)

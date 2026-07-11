@@ -248,7 +248,7 @@ function H264SPSParser() {
 }
 export function H264Session() {
     const browserType = BrowserDetect();
-    const prefersVideoMode = "safari" === browserType;
+    const prefersVideoMode = "safari" === browserType && "undefined" != typeof globalThis.MediaSource && "function" != typeof globalThis.VideoDecoder;
 
     function a(a) {
         prefersVideoMode && "canvas" === a && (a = "video");

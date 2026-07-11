@@ -97,6 +97,11 @@ function VideoMediaSource(a) {
               Z.removeEventListener(Q[a].type, Q[a]["function"])
   }
   function h() {
+      if ("undefined" == typeof MediaSource)
+          return debug.log("videoMediaSource::MediaSource unavailable"),
+          void (lb && lb({
+              errorCode: 101
+          }));
       if (null === $ || "ended" === $.readyState)
           return $ = new MediaSource,
           f($),
@@ -337,8 +342,15 @@ function VideoMediaSource(a) {
           Z.autoplay = "safari" === J ? !1 : !0,
           Z.controls = !1,
           Z.preload = "auto",
-          e(Z),
-          h()
+          e(Z);
+          if ("undefined" == typeof MediaSource)
+              return debug.log("videoMediaSource::init MediaSource is unavailable"),
+              lb && lb({
+                  errorCode: 101
+              }),
+              !1;
+          return h(),
+          !0
       },
       setInitSegmentFunc: function(a) {
           D = a
@@ -388,8 +400,8 @@ function VideoMediaSource(a) {
           0 === M.timestamp && V.timeStamp(a),
           c === !0 && (U = 0,
           M = a,
-          H(M.timestamp, "init"),
-          0 !== L.timestamp && O && (Z.currentTime = $.duration - .1,
+          null !== H && H(M.timestamp, "init"),
+          0 !== L.timestamp && O && null !== Z && null !== $ && (Z.currentTime = $.duration - .1,
           V.waitingCallback(!1)),
           N = null),
           L = a
@@ -439,7 +451,7 @@ function VideoMediaSource(a) {
           gb = 0)
       },
       getDuration: function() {
-          return Z.duration - Z.currentTime
+          return null === Z ? 0 : Z.duration - Z.currentTime
       },
       setFPS: function(a) {
           a && (nb = a)
