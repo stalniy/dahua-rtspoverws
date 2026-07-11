@@ -38,6 +38,10 @@ export class AudioPlayerAAC {
     createAudioElement() {
         this.mimeType = 'audio/aac';
         this.audioElement = document.createElement('audio');
+        this.audioElement.playsInline = true;
+        this.audioElement.setAttribute('playsinline', '');
+        this.audioElement.setAttribute('webkit-playsinline', '');
+        this.audioElement.preload = 'auto';
         document.body.appendChild(this.audioElement);
         this.audioElement.addEventListener('error', this.handleAudioError);
     }
@@ -206,6 +210,12 @@ export class AudioPlayerAAC {
 
     play() {
         this.controlVolumn(this.volume);
+    }
+
+    unlock() {
+        if (this.audioElement) {
+            this.audioElement.play().catch(() => {});
+        }
     }
 
     stop() {
@@ -436,6 +446,12 @@ export class AudioPlayerGxx {
 
     play() {
         this.controlVolumn(this.volume);
+    }
+
+    unlock() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+        }
     }
 
     stop() {

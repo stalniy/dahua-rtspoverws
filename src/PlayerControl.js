@@ -83,6 +83,9 @@ export class PlayerControl {
   setAudioVolume(volume) {
     this.controlPlayer("volumn", volume);
   }
+  unlockAudio() {
+    this.ws.unlockAudio();
+  }
   controlPlayer(command, dataType, dataValue) {
     var controlData =
       "video" === dataType

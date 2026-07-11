@@ -102,6 +102,10 @@ export class WebsocketServer {
     return this.workerManager.terminateAudio();
   }
 
+  unlockAudio() {
+    return this.workerManager.unlockAudio();
+  }
+
   controlPlayer(command) {
     let rtspCommand = "";
 

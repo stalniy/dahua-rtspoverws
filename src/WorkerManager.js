@@ -18,6 +18,7 @@ export default function WorkerManager() {
 let webCodecsPlayStarted = false;
 let webCodecsUnsupportedNotified = false;
 let waitingForKeyframeNotified = false;
+let audioUnlockRequested = false;
 /**
  * @type {import("@yume-chan/scrcpy-decoder-webcodecs").VideoFrameRenderer}
  */
@@ -330,20 +331,8 @@ function canUseWebCodecs() {
       case "render":
           if (V === !0)
               break;
-          rb !== b.codec && (null !== q && (sb = q.getVolume(),
-          tb = q.getInitVideoTimeStamp(),
-          q.terminate()),
-          "AAC" === b.codec ? "edge" === I || "firefox" === I ? (q = null,
-          null !== A && A({
-              errorCode: 201
-          })) : q = new AudioPlayerAAC : "safari-old" === I ? (q = null,
-          null !== A && A({
-              errorCode: 201
-          })) : (q = new AudioPlayerGxx,
-          q.setSamplingRate(b.samplingRate)),
-          null !== q && (q.setInitVideoTimeStamp(tb),
-          q.audioInit(sb) || (q = null)),
-          rb = b.codec),
+          rb !== b.codec && ensureAudioPlayer(b.codec, b.samplingRate),
+          null !== q && null !== b.samplingRate && void 0 !== b.samplingRate && "function" == typeof q.setSamplingRate && q.setSamplingRate(b.samplingRate),
           null !== q && (null === J || "undefined" == typeof J ? q.bufferAudio(b.data, b.rtpTimeStamp, null) : q.bufferAudio(b.data, b.rtpTimeStamp, J.codecType))
       }
   }
@@ -359,7 +348,7 @@ function canUseWebCodecs() {
           type: "getRtpData",
           data: a
       };
-      n.postMessage(b)
+      audioTalkWorker.postMessage(b)
   }
   function h(a) {
       null !== X && (X.close(),
@@ -396,9 +385,65 @@ function canUseWebCodecs() {
   function k(a, b) {
       null !== q && q.setBufferingFlag(a, b)
   }
+  function findAudioTrack(a) {
+      if (!Array.isArray(a))
+          return null;
+      for (var b = 0; b < a.length; b++) {
+          var c = a[b];
+          if (c && "string" == typeof c.codecName && -1 === c.trackID.search("trackID=t"))
+              return c
+      }
+      return null
+  }
+  function normalizeAudioCodecName(a) {
+      switch (a) {
+      case "AAC":
+      case "mpeg4-generic":
+          return "AAC";
+      case "G.726-16":
+      case "G.726-24":
+      case "G.726-32":
+      case "G.726-40":
+      case "G726":
+          return "G726";
+      case "G.711A":
+      case "G.711Mu":
+      case "G711":
+          return "G711";
+      default:
+          return null
+      }
+  }
+  function ensureAudioPlayer(a, b) {
+      var c = normalizeAudioCodecName(a);
+      if (!c)
+          return;
+      if (rb === c && null !== q) {
+          null !== b && void 0 !== b && "function" == typeof q.setSamplingRate && q.setSamplingRate(b);
+          return
+      }
+      null !== q && (sb = q.getVolume(),
+      tb = q.getInitVideoTimeStamp(),
+      q.terminate(),
+      q = null);
+      if ("AAC" === c)
+          if ("edge" === I || "firefox" === I || "safari-old" === I)
+              return void (null !== A && A({
+                  errorCode: 201
+              }));
+          else
+              q = new AudioPlayerAAC;
+      else
+          q = new AudioPlayerGxx;
+      null !== q && (null !== b && void 0 !== b && "function" == typeof q.setSamplingRate && q.setSamplingRate(b),
+      q.setInitVideoTimeStamp(tb),
+      q.audioInit(sb) ? (audioUnlockRequested && q.unlock?.(),
+      rb = c) : (q = null,
+      rb = null))
+  }
   var videoProcessWorker = null
     , audioProcessWorker = null
-    , n = null
+    , audioTalkWorker = null
     , o = null
     /**
      * @type {StreamDrawer}
@@ -555,18 +600,18 @@ function canUseWebCodecs() {
           N)
               try {
                   window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext,
-                  n = new Worker("./media/ump/Workers/audioTalkWorker.js"),
-                  n.onmessage = f,
+                  audioTalkWorker = new Worker("./media/ump/Workers/audioTalkWorker.js"),
+                  audioTalkWorker.onmessage = f,
                   null === r && (r = new Talk,
                   r.init(),
                   r.setSendAudioTalkBufferCallback(g));
                   var e = r.initAudioOut();
-                  n.postMessage(sdpInfoMessage),
+                  audioTalkWorker.postMessage(sdpInfoMessage),
                   sdpInfoMessage = {
                       type: "sampleRate",
                       data: e
                   },
-                  n.postMessage(sdpInfoMessage)
+                  audioTalkWorker.postMessage(sdpInfoMessage)
               } catch (h) {
                   return N = !1,
                   void debug.error("Web Audio API is not supported in this web browser! : " + h)
@@ -574,6 +619,8 @@ function canUseWebCodecs() {
           rb = null,
           mb = !1,
           K = a;
+          var i = findAudioTrack(a);
+          i && ensureAudioPlayer(i.codecName, parseInt(i.ClockFreq, 10));
           if (this.sdpInfoProcessedCallback) {
             this.sdpInfoProcessedCallback({
               hasAudioIn: audioSdpInfoProcessed.hasAudioSession,
@@ -920,12 +967,16 @@ function canUseWebCodecs() {
           switch (debug.log(a + " " + b),
           a) {
           case "audioPlay":
-              "start" === b ? null !== q && q.play() : (sb = 0,
+              audioUnlockRequested = !0,
+              "start" === b ? null !== q && (q.unlock?.(),
+              q.play()) : (sb = 0,
               null !== q && q.stop());
               break;
           case "volumn":
+              audioUnlockRequested = !0,
               sb = b,
-              null !== q && q.controlVolumn(b);
+              null !== q && (q.unlock?.(),
+              q.controlVolumn(b));
               break;
           case "audioSamplingRate":
               null !== q && q.setSamplingRate(b)
@@ -965,6 +1016,10 @@ function canUseWebCodecs() {
       setCheckDelay: function(a) {
           Q = a
       },
+      unlockAudio() {
+          audioUnlockRequested = !0,
+          null !== q && q.unlock?.()
+      },
       initStartTime: function() {
           if ("canvas" === P) {
               webCodecsDecoder.reset(),
@@ -988,6 +1043,7 @@ function canUseWebCodecs() {
           q.terminate();
           q = null;
         }
+        rb = null;
       },
       async terminate() {
           // Only terminate video/audio workers if not in backup mode
@@ -1001,9 +1057,9 @@ function canUseWebCodecs() {
           }
 
           // Terminate audio talk worker
-          if (n) {
-              n.terminate();
-              n = null;
+          if (audioTalkWorker) {
+              audioTalkWorker.terminate();
+              audioTalkWorker = null;
           }
 
           // Terminate talk service

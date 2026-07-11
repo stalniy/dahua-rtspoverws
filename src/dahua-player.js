@@ -342,6 +342,8 @@ class DahuaPlayer extends HTMLElement {
     container.addEventListener('mouseenter', () => this.#showControls());
     container.addEventListener('mouseleave', () => this.#hideControls());
     container.addEventListener('mousemove', () => this.#showControls(), { passive: true });
+    container.addEventListener('pointerdown', () => this.#unlockAudio(), { passive: true });
+    container.addEventListener('touchstart', () => this.#unlockAudio(), { passive: true });
 
     playPauseBtn.addEventListener('click', () => this.#togglePlay());
     volumeBtn.addEventListener('click', () => this.#toggleAudio());
@@ -527,6 +529,8 @@ class DahuaPlayer extends HTMLElement {
   #togglePlay() {
     if (!this.#player) return;
 
+    this.#unlockAudio();
+
     if (this.isPlaying) {
       this.pause();
     } else {
@@ -550,6 +554,8 @@ class DahuaPlayer extends HTMLElement {
   #toggleAudio() {
     if (!this.#player) return;
 
+    this.#unlockAudio();
+
     const volumeSlider = this.shadowRoot.querySelector('#volume-slider');
 
     if (this.#isAudioEnabled) {
@@ -563,9 +569,14 @@ class DahuaPlayer extends HTMLElement {
     return this.hasAttribute('enable-ivs') && this.getAttribute('enable-ivs') !== 'false';
   }
 
+  #unlockAudio() {
+    this.#player?.unlockAudio();
+  }
+
   setVolume(value) {
     if (!this.#player) return;
 
+    this.#unlockAudio();
     const volume = parseFloat(value);
     this.#player.setAudioVolume(volume);
 
@@ -697,6 +708,8 @@ class DahuaPlayer extends HTMLElement {
 
   play() {
     if (!this.#player || this.isPlaying) return;
+
+    this.#unlockAudio();
 
     if (!this.#isPlayerConnected) {
       this.#player.connect();
