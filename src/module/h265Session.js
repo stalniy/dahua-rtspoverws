@@ -2,6 +2,7 @@
 import { VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
 import createFFmpegCore from './Decode/ffmpeg-core.js';
 import { H265Decoder } from './Decode/h265Decoder.js';
+import { PlanarYuvWebGLCanvas } from './WebGLCanvas.js';
 
 
 function H265SPSParser() {
@@ -300,11 +301,22 @@ function createBitmapFrameConverter() {
     var canvas = null
       , context = null
       , imageData = null
+      , webglRenderer = null
+      , webglUnavailable = !1
       , currentWidth = 0
       , currentHeight = 0;
 
     function clamp(value) {
         return value < 0 ? 0 : value > 255 ? 255 : value
+    }
+    function createSize(width, height) {
+        return {
+            w: width,
+            h: height,
+            getHalfSize: function() {
+                return createSize(width >> 1, height >> 1)
+            }
+        }
     }
 
     return {
@@ -326,14 +338,41 @@ function createBitmapFrameConverter() {
 
             if (!canvas || currentWidth !== width || currentHeight !== height) {
                 canvas = new OffscreenCanvas(width, height);
+                context = null;
+                imageData = null;
+                webglRenderer = null;
+                currentWidth = width;
+                currentHeight = height;
+            }
+
+            if (!webglUnavailable && !webglRenderer)
+                try {
+                    webglRenderer = new PlanarYuvWebGLCanvas(canvas, createSize(width, height));
+                } catch (error) {
+                    webglUnavailable = !0;
+                    webglRenderer = null;
+                    debug.log("Worker WebGL YUV converter unavailable, falling back to CPU conversion", error);
+                }
+
+            if (webglRenderer) {
+                webglRenderer.drawCanvas(frameData.data, frameData.option);
+                return {
+                    data: canvas.transferToImageBitmap(),
+                    option: {
+                        bitmapFrame: !0
+                    },
+                    width: width,
+                    height: height,
+                    codecType: frameData.codecType,
+                    frameType: frameData.frameType
+                };
+            }
+
+            if (!context)
                 context = canvas.getContext("2d", {
                     alpha: !1,
                     desynchronized: !0,
                 });
-                imageData = null;
-                currentWidth = width;
-                currentHeight = height;
-            }
 
             if (!context)
                 return null;
