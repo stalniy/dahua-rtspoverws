@@ -8,6 +8,8 @@ Stream RTSP over websocket and use RTSP direclty in web browser. Made possible b
 
 Also supports audio, IVS rendering and taking screenshots in browser. Digest authentication is extracted into a separate option callback, so we don't need to store/specify username/password on frontend.
 
+Video decoding now prefers WebCodecs when the app runs in a secure context and the browser exposes the required APIs. When WebCodecs is unavailable, the project falls back to `ffmpeg.wasm`.
+
 To take snapshot on your camera try this:
 
 ```
@@ -19,6 +21,11 @@ http://username:password@host:port/cgi-bin/snapshot.cgi?0
 ```
 npm ci
 ```
+
+## Decoder support
+
+- WebCodecs is used when the page is running in a secure context such as `https://` or `localhost`, and the browser provides the required decoder support.
+- When those requirements are not met, the player falls back to `ffmpeg.wasm`.
 
 ## Test
 

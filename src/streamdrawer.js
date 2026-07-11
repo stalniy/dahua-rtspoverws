@@ -131,6 +131,7 @@ function StreamDrawer(a, b, c, d) {
       , v = null
       , w = null
       , x = null
+      , ba = null
       , y = 0
       , z = null
       , A = 0
@@ -287,7 +288,7 @@ function StreamDrawer(a, b, c, d) {
             ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType || rendererTypeMismatch) && (
             S(F.width, F.height, F.option),
             s = aa,
-            ("undefined" == q || null == q || 0 == q) && w("PlayStart"),
+            ("undefined" == q || null == q || 0 == q) && "function" == typeof w && w("PlayStart"),
             "mjpeg" !== F.codecType && g(F.option.realWidth, F.option.realHeight),
             q = F.width,
             r = F.height,
@@ -295,25 +296,28 @@ function StreamDrawer(a, b, c, d) {
             z = F.timeStamp,
             k.timeStamp(z);
 
-            if ("undefined" != typeof p) {
-                p.drawCanvas(F.buffer, F.option),
-                o.updatedCanvas = !0,
-                x(z),
-                Math.abs(z.timestamp - A) > P && k.waitingCallback(!1),
-                A = z.timestamp,
-                H && (H = !1,
-                h(o.toDataURL(), G));
-                if ("mjpeg" === F.codecType) {
-                    E.free(F.buffer);
-                } else {
-                    releaseFrameBuffer(F.buffer),
-                    F.buffer = null;
+            if ("undefined" != typeof p)
+                try {
+                    p.drawCanvas(F.buffer, F.option),
+                    o.updatedCanvas = !0,
+                    null !== ba && ba(F.option),
+                    "function" == typeof x && x(z),
+                    null !== z && "function" == typeof k.waitingCallback && Math.abs(z.timestamp - A) > P && k.waitingCallback(!1),
+                    null !== z && (A = z.timestamp),
+                    H && (H = !1,
+                    h(o.toDataURL(), G));
+                    return !0;
+                } finally {
+                    if ("mjpeg" === F.codecType) {
+                        E.free(F.buffer);
+                    } else {
+                        releaseFrameBuffer(F.buffer),
+                        F.buffer = null;
+                    }
+                    F.previous = null,
+                    F.next = null,
+                    F = null;
                 }
-                F.previous = null,
-                F.next = null,
-                F = null;
-                return !0;
-            }
             debug.log("drawer is undefined in StreamDrawer!")
         }
         return !1
@@ -379,6 +383,7 @@ function StreamDrawer(a, b, c, d) {
                 if (typeof p !== "undefined") {
                     p.drawCanvas(frameBuffer, options);
                     o.updatedCanvas = true;
+                    null !== ba && ba(options);
 
                     // Handle screenshot capture if requested
                     if (H && (H = false, h(o.toDataURL(), G)));
@@ -451,6 +456,9 @@ function StreamDrawer(a, b, c, d) {
         },
         setupdateCanvasCallback: function(a) {
             x = a
+        },
+        setFrameDrawnCallback: function(a) {
+            ba = a
         },
         terminate: function() {
             y = 0,

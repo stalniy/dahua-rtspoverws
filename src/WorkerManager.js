@@ -248,9 +248,6 @@ function resolveDecodeModeForTracks(tracks) {
       case "canvasRender":
           k(0, "currentTime"),
           i(c.data, c.option),
-          c.option && c.option.bitmapFrame && null !== videoProcessWorker && videoProcessWorker.postMessage({
-              type: "canvasRenderAck"
-          }),
           vb++;
           break;
       case "initSegment":
@@ -683,6 +680,11 @@ function resolveDecodeModeForTracks(tracks) {
           audioProcessWorker.onmessage = e;
           var g = f === !0 ? 500 : 15;
           p = new StreamDrawer(Ab,this,S,g);
+          p.setFrameDrawnCallback((frameOptions) => {
+              frameOptions && frameOptions.bitmapFrame && null !== videoProcessWorker && videoProcessWorker.postMessage({
+                  type: "canvasRenderAck"
+              });
+          });
           renderer = null;
           hevcDecoderModePromise = detectHevcDecoderMode().then((mode) => {
               hevcDecoderMode = mode;
