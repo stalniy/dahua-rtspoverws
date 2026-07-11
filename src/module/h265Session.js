@@ -323,6 +323,16 @@ function createBitmapFrameConverter() {
         isSupported: function() {
             return "function" == typeof OffscreenCanvas;
         },
+        reset: function() {
+            webglRenderer && webglRenderer.clearCanvas && webglRenderer.clearCanvas();
+            canvas = null;
+            context = null;
+            imageData = null;
+            webglRenderer = null;
+            webglUnavailable = !1;
+            currentWidth = 0;
+            currentHeight = 0;
+        },
         convert: function(frameData) {
             if (!frameData || !frameData.data || !frameData.option || !this.isSupported())
                 return null;
@@ -485,6 +495,7 @@ export function H265Session() {
             x = "wasm" === a ? "wasm" : "webcodecs",
             z && (z.close(),
             z = null),
+            bitmapFrameConverter.reset(),
             "wasm" === x && (null === y && (y = await createFFmpegCore()),
             z = new H265Decoder(y),
             z.init())
@@ -650,7 +661,8 @@ export function H265Session() {
         },
         terminate() {
             z && (z.close(),
-            z = null)
+            z = null),
+            bitmapFrameConverter.reset()
         }
     },
     new a

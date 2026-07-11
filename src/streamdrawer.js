@@ -14,6 +14,19 @@ function BufferNode(a) {
     this.next = null
 }
 function StreamDrawer(a, b, c, d) {
+    function releaseFrameBuffer(a) {
+        if (!a)
+            return;
+        if (window.VideoFrame && a instanceof VideoFrame) {
+            a.close();
+            return;
+        }
+        if ("function" == typeof ImageBitmap && a instanceof ImageBitmap) {
+            a.close();
+            return;
+        }
+        delete a.buffer;
+    }
     function getPreferredRendererType(a) {
         return a && a.bitmapFrame ? "Canvas2dImageCanvas" : a && "undefined" != typeof a.ylen ? "PlanarYuvWebGL" : "ImageWebGL"
     }
@@ -57,6 +70,7 @@ function StreamDrawer(a, b, c, d) {
                     a = this.first,
                     this.first = this.first.next,
                     this.size -= 1,
+                    releaseFrameBuffer(a.buffer),
                     a.buffer = null,
                     a = null;
                 this.size = 0,
@@ -291,12 +305,8 @@ function StreamDrawer(a, b, c, d) {
                 h(o.toDataURL(), G));
                 if ("mjpeg" === F.codecType) {
                     E.free(F.buffer);
-                } else if (isVideoFrame) {
-                    F.buffer.close();
-                } else if (isImageBitmap) {
-                    F.buffer.close();
                 } else {
-                    delete F.buffer;
+                    releaseFrameBuffer(F.buffer),
                     F.buffer = null;
                 }
                 F.previous = null,
