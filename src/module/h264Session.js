@@ -16,6 +16,25 @@ function decodeBase64ToUint8Array(value) {
     }
 }
 
+function buildAnnexBNalUnits(units) {
+    var totalLength = 0;
+    for (var index = 0; index < units.length; index++)
+        units[index] && (totalLength += 4 + units[index].length);
+    if (0 === totalLength)
+        return null;
+    for (var buffer = new Uint8Array(totalLength), offset = 0, index = 0; index < units.length; index++) {
+        var unit = units[index];
+        unit && (buffer[offset] = 0,
+        buffer[offset + 1] = 0,
+        buffer[offset + 2] = 0,
+        buffer[offset + 3] = 1,
+        offset += 4,
+        buffer.set(unit, offset),
+        offset += unit.length)
+    }
+    return buffer
+}
+
 function H264SPSParser() {
     function a() {
         x = 0,
@@ -494,6 +513,12 @@ export function H264Session() {
                         ab = Y[Z] - 1;
                         break;
                     case 28:
+                        if (M.length > 1) {
+                            var cb = 31 & M[1];
+                            5 === cb ? ($ = "I",
+                            ab = Y[Z] - 1) : 1 === cb && "I" !== $ && ($ = "P",
+                            ab = Y[Z] - 1)
+                        }
                         break;
                     case 7:
                         i.parse(M);
@@ -531,31 +556,33 @@ export function H264Session() {
                 },
                 null !== r.timestamp && "undefined" != typeof r.timestamp ? Q.backupData.timestamp_usec = r.timestamp_usec : Q.backupData.timestamp = (d / 90).toFixed(0)),
                 "canvas" === I) {
-                    var cb = 1e3 * r.timestamp + r.timestamp_usec;
+                    var frameTimestamp = 1e3 * r.timestamp + r.timestamp_usec;
                     if (0 == this.firstDiffTime ? (m = 0,
-                    this.firstDiffTime = Date.now() - cb,
-                    debug.log("firstDiff: " + N)) : (0 > cb - E && (this.firstDiffTime = m + (Date.now() - cb).toFixed(0)),
-                    m = Date.now() - cb - this.firstDiffTime,
+                    this.firstDiffTime = Date.now() - frameTimestamp,
+                    debug.log("firstDiff: " + N)) : (0 > frameTimestamp - E && (this.firstDiffTime = m + (Date.now() - frameTimestamp).toFixed(0)),
+                    m = Date.now() - frameTimestamp - this.firstDiffTime,
                     0 > m && (this.firstDiffTime = 0,
                     m = 0),
                     m > n && (Q.error = {
                         errorCode: 101
                     },
                     this.rtpReturnCallback(Q))),
-                    E = cb,
+                    E = frameTimestamp,
                     f !== j && (f = j),
                     o === !0 && "P" === $)
                         return void (e = 0);
                     o === !0 && (o = !1),
                     "I" === $ && 2 > p && p++,
-                    r = null === r.timestamp ? this.getTimeStamp() : r,
+                    r = null === r.timestamp ? this.getTimeStamp() : r;
+                    var decoderConfiguration = buildAnnexBNalUnits([t, u]);
                     Q.nalUnits = {
                         frameType: $,
                         width: A,
                         height: B,
                         codecType: "h264",
                         timestamp: r,
-                        rawStream: new Uint8Array(W)
+                        configuration: decoderConfiguration,
+                        rawStream: new Uint8Array(W.subarray(ab > 0 ? ab : 0))
                     },
                     e = 0
                 } else {
