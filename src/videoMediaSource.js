@@ -248,10 +248,10 @@ function VideoMediaSource(a) {
           bb++;
           var a = Date.now() - ab;
           debug.log("diffTime: " + a + "  Count: " + bb),
-          bb >= 5 && 6e4 > a && 1.8 >= Y && (Y += .1,
+          bb >= 5 && 6e4 > a && sb >= Y && (Y += .05,
           bb = 0,
           ab = 0,
-          debug.log("delay + 0.1 = " + Y))
+          debug.log("delay + 0.05 = " + Y))
       }
   }
   function z() {
@@ -259,7 +259,10 @@ function VideoMediaSource(a) {
   }
   function A() {
       debug.log("Can play without waiting"),
-      W = !0
+      W = !0,
+      bb = 0,
+      ab = 0,
+      Y = rb
   }
   function B() {
       debug.log("loadedmetadata")
@@ -301,7 +304,7 @@ function VideoMediaSource(a) {
     , V = a
     , W = !1
     , X = []
-    , Y = .5
+    , Y = .2
     , Z = null
     , $ = null
     , _ = null
@@ -319,12 +322,18 @@ function VideoMediaSource(a) {
     , lb = null
     , mb = !1
     , nb = 25
-    , ob = .5;
+    , ob = .25
+    , rb = .2
+    , sb = .6;
   b.prototype = {
       init: function(a) {
           J = BrowserDetect(),
           debug.log("videoMediaSource::init browserType = " + J),
           Z = a,
+          Y = rb,
+          ob = .25,
+          bb = 0,
+          ab = 0,
           Z.autoplay = "safari" === J ? !1 : !0,
           Z.controls = !1,
           Z.preload = "auto",

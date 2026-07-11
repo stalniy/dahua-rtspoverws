@@ -21,6 +21,18 @@ debug.log("video worker loaded");
 sendMessage("WorkerReady")
 addEventListener("message", receiveMessage, false);
 
+function getCurrentVideoSession() {
+    if ("undefined" != typeof videoRtpSessionsArray[videoCHID] && null !== videoRtpSessionsArray[videoCHID])
+        return videoRtpSessionsArray[videoCHID];
+
+    for (const session of videoRtpSessionsArray) {
+        if (session)
+            return session;
+    }
+
+    return null;
+}
+
 function receiveMessage(message) {
     var payload = message.data;
     channelId = payload.channelId;
@@ -41,9 +53,11 @@ function receiveMessage(message) {
         videoCHID = payload.data.rtspInterleave[1],
         "undefined" != typeof videoRtpSessionsArray[videoCHID] && videoRtpSessionsArray[videoCHID].parseRTPData(payload.data.rtspInterleave, payload.data.payload, isBackupCommand, dropout, payload.info, payload.channel);
         break;
-    case "initStartTime":
-        videoRtpSessionsArray[videoCHID].initStartTime();
+    case "initStartTime": {
+        const session = getCurrentVideoSession();
+        session && session.initStartTime();
         break;
+    }
     case "terminate":
         videoRtpSessionsArray.forEach(rtpSession => {
             rtpSession.terminate();
@@ -60,6 +74,8 @@ async function setVideoRtpSession(a) {
         rtpSession = null;
         videoEncoding.setMode(a.decodeMode);
 
+        debug.log(`Setting up RTP session for codec: ${a.sdpInfo[b].codecName}`);
+
         if (a.sdpInfo[b].codecName === "H264") {
           if (h264Session === null) {
             const H264Session = await import('./h264Session.js').then(m => m.H264Session);
@@ -67,6 +83,7 @@ async function setVideoRtpSession(a) {
           }
           rtpSession = h264Session;
           rtpSession.init(a.decodeMode);
+          "function" == typeof rtpSession.applySdpCodecData && rtpSession.applySdpCodecData(a.sdpInfo[b]);
           rtpSession.setFramerate(a.sdpInfo[b].Framerate);
           rtpSession.setGovLength(a.govLength);
           rtpSession.setCheckDelay(a.checkDelay);
@@ -114,7 +131,8 @@ function buffering(a) {
     "undefined" != typeof videoRtpSessionsArray[videoCHID] && videoRtpSessionsArray[videoCHID].bufferingRtpData(a.data.rtspInterleave, a.data.header, a.data.payload)
 }
 function BufferFullCallback() {
-    videoRtpSessionsArray[videoCHID].findCurrent(),
+    const session = getCurrentVideoSession();
+    session && session.findCurrent(),
     sendMessage("stepPlay", "BufferFull")
 }
 function RtpReturnCallback(a) {

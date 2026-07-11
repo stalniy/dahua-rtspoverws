@@ -15,6 +15,7 @@ class DahuaPlayer extends HTMLElement {
   #isAudioEnabled = false;
   #isPlaying = false;
   #videoElement = null;
+  #renderMode = 'canvas';
 
   constructor() {
     super();
@@ -76,6 +77,7 @@ class DahuaPlayer extends HTMLElement {
     this.#isIVSEnabled = false;
     this.#isAudioEnabled = false;
     this.#isPlaying = false;
+    this.#renderMode = 'canvas';
   }
 
   #render() {
@@ -106,13 +108,31 @@ class DahuaPlayer extends HTMLElement {
 
         .video-canvas-container {
           position: relative;
+          display: grid;
+          place-items: center;
+          width: 100%;
+          height: 100%;
           z-index: var(--dahua-player-z-index, 1);
         }
 
-        .video-canvas {
+        .render-surface {
+          grid-area: 1 / 1;
+          display: block;
+          width: 100%;
+          height: 100%;
           max-width: 100%;
           max-height: 100%;
           object-fit: contain;
+          background: #000;
+        }
+
+        .render-surface.is-hidden {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .video-canvas {
+          position: relative;
         }
 
         .preview-image {
@@ -271,15 +291,12 @@ class DahuaPlayer extends HTMLElement {
         .icon-fullscreen::before { content: "⛶"; }
         .icon-fullscreen-exit::before { content: "⛶"; }
 
-        .video-element {
-          display: none;
-        }
       </style>
 
       <div class="video-container">
         <div class="video-canvas-container">
-          <video id="video-element" class="video-element" playsinline muted></video>
-          <canvas class="video-canvas" id="video-canvas"></canvas>
+          <video id="video-element" class="render-surface is-hidden" playsinline muted></video>
+          <canvas class="video-canvas render-surface" id="video-canvas"></canvas>
         </div>
 
         <div class="loading" id="loading">Connecting...</div>
@@ -366,9 +383,19 @@ class DahuaPlayer extends HTMLElement {
     const subtype = parseInt(this.getAttribute('subtype'), 10) || 0;
     let rtspUrl = this.getAttribute('rtsp-url') || `rtsp://${cameraIp}/cam/realmonitor?channel=${channel}&subtype=${subtype}`;
     if (this.#isIVSEnabledInStream()) rtspUrl += '&proto=Private3';
-    const wsUrl = this.getAttribute('ws-url') || `ws://${cameraIp}/rtspoverwebsocket`;
+    const configuredWsUrl = this.getAttribute('ws-url');
+    const securePage = window.location.protocol === 'https:';
+    const defaultWsProtocol = securePage ? 'wss' : 'ws';
+    let wsUrl = configuredWsUrl || `${defaultWsProtocol}://${cameraIp}/rtspoverwebsocket`;
+
+    // Prevent mixed-content errors when the page is served over HTTPS.
+    if (securePage && wsUrl.startsWith('ws://')) {
+      wsUrl = wsUrl.replace(/^ws:\/\//, 'wss://');
+    }
 
     this.#videoCanvas = this.shadowRoot.querySelector('#video-canvas');
+    this.#videoElement = this.shadowRoot.querySelector('#video-element');
+    this.#setRenderMode('canvas');
     const loadingEl = this.shadowRoot.querySelector('#loading');
 
     try {
@@ -411,7 +438,12 @@ class DahuaPlayer extends HTMLElement {
         this.#ivsCanvasDrawer?.receiveDataFromStream(data);
       });
 
-      this.#player.on('DecodeStart', () => {
+      this.#player.on('videoMode', (mode) => {
+        this.#setRenderMode(mode);
+      });
+
+      this.#player.on('DecodeStart', (event) => {
+        this.#setRenderMode(event?.decodeMode);
         this.#hidePreviewImage();
       });
 
@@ -424,7 +456,7 @@ class DahuaPlayer extends HTMLElement {
         }
       });
 
-      this.#player.init(this.#videoCanvas, {}, channel)
+      this.#player.init(this.#videoCanvas, this.#videoElement, channel)
         .then(() => {
           loadingEl.style.display = 'none';
 
@@ -459,6 +491,16 @@ class DahuaPlayer extends HTMLElement {
       errorEl.style.display = 'block';
       errorEl.textContent = message;
     }
+  }
+
+  #setRenderMode(mode = 'canvas') {
+    this.#renderMode = mode === 'video' ? 'video' : 'canvas';
+
+    this.#videoCanvas ??= this.shadowRoot.querySelector('#video-canvas');
+    this.#videoElement ??= this.shadowRoot.querySelector('#video-element');
+
+    this.#videoCanvas?.classList.toggle('is-hidden', this.#renderMode === 'video');
+    this.#videoElement?.classList.toggle('is-hidden', this.#renderMode !== 'video');
   }
 
   #showControls() {
@@ -591,8 +633,12 @@ class DahuaPlayer extends HTMLElement {
     }
 
     const video = this.#videoElement;
-    video.style.display = 'block';
-    video.srcObject = this.#videoCanvas.captureStream(20);
+    const isVideoMode = this.#renderMode === 'video';
+
+    if (!isVideoMode) {
+      video.classList.remove('is-hidden');
+      video.srcObject = this.#videoCanvas.captureStream(20);
+    }
 
     this.setVolume(0.8);
 
@@ -601,9 +647,11 @@ class DahuaPlayer extends HTMLElement {
     video.play().then(() => {
       video.webkitEnterFullscreen();
       video.addEventListener('webkitendfullscreen', () => {
-        video.pause();
-        video.srcObject = null;
-        video.style.display = 'none';
+        if (!isVideoMode) {
+          video.pause();
+          video.srcObject = null;
+          video.classList.add('is-hidden');
+        }
       }, { capture: true, once: true });
     });
 
@@ -628,7 +676,9 @@ class DahuaPlayer extends HTMLElement {
 
     video.pause();
     video.srcObject = null;
-    video.style.display = 'none';
+    if (this.#renderMode !== 'video') {
+      video.classList.add('is-hidden');
+    }
 
     if (document.fullscreenElement === this && document.exitFullscreen) {
       document.exitFullscreen();

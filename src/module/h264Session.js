@@ -1,5 +1,20 @@
 import { mp4Remux } from './mp4remux.js';
-import { VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
+import { BrowserDetect, VideoBufferList, debug, reconstructRtpTimestamp } from './public1.js'
+
+function decodeBase64ToUint8Array(value) {
+    if (!value)
+        return null;
+    try {
+        var decoded = atob(value.trim())
+          , bytes = new Uint8Array(decoded.length);
+        for (var index = 0; index < decoded.length; index++)
+            bytes[index] = decoded.charCodeAt(index);
+        return bytes
+    } catch (error) {
+        debug.error("Failed to decode H264 codec config", error);
+        return null
+    }
+}
 
 function H264SPSParser() {
     function a() {
@@ -232,7 +247,11 @@ function H264SPSParser() {
     new a
 }
 export function H264Session() {
+    const browserType = BrowserDetect();
+    const prefersVideoMode = "safari" === browserType;
+
     function a(a) {
+        prefersVideoMode && "canvas" === a && (a = "video");
         a !== I && ("video" === a ? I = "video" : (I = "canvas",
         o = !0,
         p = 0,
@@ -240,9 +259,14 @@ export function H264Session() {
     }
     function b(a, b, c) {
         var d = "";
+        if (prefersVideoMode)
+            return "video";
         return a * b > 921600 && c === !1 ? (d = "video",
         Q && M > 0 && 3 >= M && (d = "canvas")) : d = "canvas",
         d
+    }
+    function hasPositiveValue(a) {
+        return null !== a && void 0 !== a && a > 0
     }
     function c() {
         this.firstDiffTime = 0,
@@ -369,11 +393,49 @@ export function H264Session() {
         init: function(a) {
             v = !1,
             h = !1,
-            I = a,
+            I = prefersVideoMode && "canvas" === a ? "video" : a,
+            q.frameData = null,
+            q.timeStamp = null,
+            q.initSegmentData = null,
+            q.mediaSample = null,
+            q.codecInfo = "",
+            t = null,
+            u = null,
+            k = null,
+            l = null,
+            x = 0,
+            y = 0,
+            A = 0,
+            B = 0,
             this.videoBufferList = new VideoBufferList,
             this.firstDiffTime = 0,
             this.checkDelay = !0,
             this.timeData = null
+        },
+        applySdpCodecData: function(a) {
+            if (!a)
+                return;
+            var b = decodeBase64ToUint8Array(a.SPS)
+              , c = decodeBase64ToUint8Array(a.PPS);
+            if (b) {
+                i.parse(b),
+                t = b,
+                l = i.getCodecInfo();
+                var e = i.getSizeInfo();
+                hasPositiveValue(e.width) && (A = x = e.width),
+                hasPositiveValue(e.height) && (B = y = e.height)
+            }
+            c && (u = c);
+            var f = parseInt(a.Width, 10)
+              , g = parseInt(a.Height, 10);
+            hasPositiveValue(f) && (A = x = f),
+            hasPositiveValue(g) && (B = y = g),
+            hasPositiveValue(A) && hasPositiveValue(B) && (k = {
+                width: A,
+                height: B
+            },
+            O.width = A,
+            O.height = B)
         },
         setFramerate: function(a) {
             a > 0 && "undefined" != typeof a && (M = a,
@@ -497,10 +559,11 @@ export function H264Session() {
                     },
                     e = 0
                 } else {
-                    var db = null;
+                    var db = null
+                      , eb = null !== t && null !== u && hasPositiveValue(x) && hasPositiveValue(y) && "undefined" != typeof i.getSpsValue("profile_idc") && "undefined" != typeof i.getSpsValue("level_idc");
                     if (v)
                         q.initSegmentData = null;
-                    else {
+                    else if (eb) {
                         v = !0;
                         var L = {
                             id: 1,
@@ -508,7 +571,7 @@ export function H264Session() {
                             height: y,
                             type: "video",
                             profileIdc: i.getSpsValue("profile_idc"),
-                            profileCompatibility: 0,
+                            profileCompatibility: i.getSpsValue("profile_compatibility"),
                             levelIdc: i.getSpsValue("level_idc"),
                             sps: [t],
                             pps: [u],
@@ -518,11 +581,16 @@ export function H264Session() {
                         debug.log(JSON.stringify(L)),
                         q.initSegmentData = mp4Remux.initSegment(L),
                         q.codecInfo = i.getCodecInfo()
-                    }
+                    } else
+                        return q.frameData = null,
+                        q.mediaSample = null,
+                        q.initSegmentData = null,
+                        q.codecInfo = "",
+                        void this.rtpReturnCallback(Q);
                     if (ab || debug.log("11111111111111111111111111111111111111111"),
                     "I" === $) {
-                        var eb = ab;
-                        db = W.subarray(eb, W.length)
+                        var ib = ab;
+                        db = W.subarray(ib, W.length)
                     } else
                         db = W.subarray(ab, W.length);
                     var fb = db.length - 4;

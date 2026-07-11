@@ -234,6 +234,65 @@ function H265SPSParser() {
     },
     new a
 }
+
+function splitAnnexBNalUnits(buffer) {
+    var units = []
+      , start = -1
+      , zeroCount = 0;
+    for (var index = 0; index < buffer.length; index++) {
+        var value = buffer[index];
+        if (0 === value) {
+            zeroCount++;
+            continue
+        }
+        if (zeroCount >= 2 && 1 === value) {
+            -1 !== start && units.push(buffer.subarray(start, index - zeroCount)),
+            start = index - zeroCount,
+            zeroCount = 0;
+            continue
+        }
+        zeroCount = 0
+    }
+    return -1 !== start && start < buffer.length && units.push(buffer.subarray(start)),
+    units
+}
+
+function getNalUnitType(unit) {
+    for (var index = 0, zeroCount = 0; index < unit.length; index++) {
+        var value = unit[index];
+        if (0 === value) {
+            zeroCount++;
+            continue
+        }
+        if (zeroCount >= 2 && 1 === value)
+            return index + 1 < unit.length ? unit[index + 1] >> 1 & 63 : -1;
+        zeroCount = 0
+    }
+    return -1
+}
+
+function stripAnnexBStartCode(unit) {
+    for (var index = 0, zeroCount = 0; index < unit.length; index++) {
+        var value = unit[index];
+        if (0 === value) {
+            zeroCount++;
+            continue
+        }
+        if (zeroCount >= 2 && 1 === value)
+            return unit.subarray(index + 1);
+        zeroCount = 0
+    }
+    return unit
+}
+
+function concatNalUnits(units) {
+    for (var totalLength = 0, index = 0; index < units.length; index++)
+        totalLength += units[index].length;
+    for (var buffer = new Uint8Array(totalLength), offset = 0, index = 0; index < units.length; index++)
+        buffer.set(units[index], offset),
+        offset += units[index].length;
+    return buffer
+}
 export function H265Session() {
     "use strict";
     function a() {
@@ -250,7 +309,7 @@ export function H265Session() {
     }, l = 0, m = 0, n = null, o = 0, p = 0, q = 0, r = 0, s = {
         width: 0,
         height: 0
-    }, t = 0, u = 8e3, v = 0;
+    }, t = 0, u = 8e3, v = 0, w = null;
     return a.prototype = {
         setReturnCallback: function(a) {
             this.rtpReturnCallback = a
@@ -306,11 +365,11 @@ export function H265Session() {
             this.videoBufferList = new VideoBufferList,
             this.firstDiffTime = 0,
             this.checkDelay = !0,
-            this.timeData = null
+            this.timeData = null,
+            w = null
         },
         parseRTPData: function(a, n, o, p, q) {
-            var w = null
-              , x = {};
+            var x = {};
             var y = reconstructRtpTimestamp(n, {
                 firstTime: this.firstTime,
                 lastMSW: this.lastMSW,
@@ -326,94 +385,91 @@ export function H265Session() {
             var C = n[22];
             b = n.subarray(24 + C, n.length - 8),
             c = (n[21] << 8) + n[20];
-            for (var D = [], E = 0; E <= b.length; )
-                if (0 == b[E])
-                    if (0 == b[E + 1])
-                        if (1 == b[E + 2]) {
-                            if (D.push(E),
-                            E += 3,
-                            5 == (31 & b[E]) || 1 == (31 & b[E]))
-                                break
-                        } else
-                            0 == b[E + 2] ? E++ : E += 3;
-                    else
-                        E += 2;
-                else
-                    E += 1;
-                        // Collect all NAL units for this frame
-
-            for (var F, G = "P", E = 0; E < D.length; E++) {
-                w = b.subarray(D[E] + 3, D[E + 1]);
-                F = b[D[E] + 3] >> 1 & 63;
-
-                switch (F) {
+            var D = splitAnnexBNalUnits(b)
+              , E = []
+              , F = []
+              , G = !1
+              , H = !1;
+            for (var I = 0; I < D.length; I++) {
+                var J = D[I]
+                  , K = getNalUnitType(J);
+                switch (K) {
                 default:
+                    -1 !== K && F.push(J);
+                    K >= 0 && 31 >= K && (H = !0);
                     break;
                 case 33: // SPS
-                    G = "I",
-                    i.parse2(w);
-                    var H = q;
-                    h = i.getSizeInfo().decodeSize,
-                    l = H.width,
-                    m = H.height,
-                    (s.width != H.width || s.height != H.height) && (0 != s.width ? (s.width = H.width,
-                    s.height = H.height,
+                    i.parse2(stripAnnexBStartCode(J));
+                    E.push(J);
+                    var L = q;
+                    h = i.getSizeInfo().decodeSize;
+                    l = L.width;
+                    m = L.height;
+                    (s.width != L.width || s.height != L.height) && (0 != s.width ? (s.width = L.width,
+                    s.height = L.height,
                     x.resolution = s,
                     x.resolution.decodeMode = "canvas",
-                    x.resolution.encodeMode = "h265") : (s.width = H.width,
-                    s.height = H.height,
+                    x.resolution.encodeMode = "h265") : (s.width = L.width,
+                    s.height = L.height,
                     x.decodeStart = s,
                     x.decodeStart.decodeMode = "canvas",
-                    x.decodeStart.encodeMode = "h265"))
+                    x.decodeStart.encodeMode = "h265"));
                     break;
                 case 32: // VPS
                 case 34: // PPS
-                    // Important parameter sets
+                    E.push(J);
                     break;
+                case 16: // BLA_W_LP
+                case 17: // BLA_W_RADL
+                case 18: // BLA_N_LP
                 case 19: // IDR_W_RADL
                 case 20: // IDR_N_LP
-                    G = "I"; // IDR frames are I-frames
-                    break;
-                case 1:  // TRAIL_R
-                case 2:  // TRAIL_N
-                    G = "P"; // P or B frames
+                case 21: // CRA_NUT
+                case 22: // RSV_IRAP_VCL22
+                case 23: // RSV_IRAP_VCL23
+                    G = !0;
+                    H = !0;
+                    F.push(J);
                     break;
                 }
             }
-            var I = 1e3 * k.timestamp + k.timestamp_usec;
+            E.length > 0 && (w = concatNalUnits(E));
+            var M = F.length > 0 ? concatNalUnits(F) : null
+              , N = G ? "I" : H ? "P" : null
+              , O = 1e3 * k.timestamp + k.timestamp_usec;
             0 == this.firstDiffTime ? (t = 0,
-            this.firstDiffTime = Date.now() - I,
-            debug.log("firstDiff: " + r)) : (0 > I - v && (this.firstDiffTime = t + (Date.now() - I).toFixed(0)),
-            t = Date.now() - I - this.firstDiffTime,
+            this.firstDiffTime = Date.now() - O,
+            debug.log("firstDiff: " + r)) : (0 > O - v && (this.firstDiffTime = t + (Date.now() - O).toFixed(0)),
+            t = Date.now() - O - this.firstDiffTime,
             0 > t && (this.firstDiffTime = 0,
             t = 0),
             t > u && (x.error = {
                 errorCode: 101
             },
             this.rtpReturnCallback(x))),
-            v = I,
+            v = O,
             j.frameData = null;
 
-            // Instead of FFmpeg decoding, send NAL units back to main thread for VideoDecoder API
-            j.frameData = null; // No decoded frame data from worker
+            j.frameData = null;
             j.timeStamp = null,
             e = 0,
             k = null === k.timestamp ? this.getTimeStamp() : k,
-            j.timeStamp = k,
+            j.timeStamp = k;
 
-            x.nalUnits = {
-                frameType: G,
+            null !== M && null !== N && (x.nalUnits = {
+                frameType: N,
                 width: l,
                 height: m,
-                codecType: "hev1.1.6.L93.B0", //"hvc1.1.6.L93.B0",
+                codecType: "h265",
                 timestamp: k,
-                rawStream: new Uint8Array(b) // Full stream data as backup
-            };
+                configuration: null !== w ? new Uint8Array(w) : null,
+                rawStream: new Uint8Array(M)
+            });
 
             // Optional: Keep backup data for fallback
             o && (x.backupData = {
                 stream: new Uint8Array(b), // Create copy for transfer
-                frameType: G,
+                frameType: N,
                 width: l,
                 height: m,
                 codecType: "h265"

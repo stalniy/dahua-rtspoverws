@@ -32,6 +32,7 @@ function canUseWebCodecs() {
       writer: null,
       writeLock: Promise.resolve(),
       codec: null,
+      configuration: null,
       normalizeCodec(codecType) {
           if (!codecType)
               return ScrcpyVideoCodecId.H265;
@@ -48,11 +49,23 @@ function canUseWebCodecs() {
           this.decoder.dispose?.(),
           this.decoder = null),
           this.writeLock = Promise.resolve(),
-          this.codec = null;
+          this.codec = null,
+          this.configuration = null;
+      },
+      sameConfiguration(configuration) {
+          if (!this.configuration || !configuration)
+              return !1;
+          if (this.configuration.length !== configuration.length)
+              return !1;
+          for (let index = 0; index < configuration.length; index += 1)
+              if (this.configuration[index] !== configuration[index])
+                  return !1;
+          return !0;
       },
       enqueueWrite(payload, context) {
           this.writeLock = this.writeLock.then(() => this.writer.write(payload)).catch((error) => {
               debug.error("workerManager::videoDecoderInfo " + context + " write failed", error);
+              this.reset();
           });
       },
       write(data) {
@@ -63,11 +76,17 @@ function canUseWebCodecs() {
           if (this.decoder && this.codec !== nextCodec)
               this.reset();
 
+          if (this.decoder && data.configuration && !this.sameConfiguration(data.configuration))
+              this.reset();
+
           const needConfiguration = !this.decoder;
           if (needConfiguration && data.frameType !== "I")
               return "need-keyframe";
 
           if (needConfiguration) {
+              const configuration = data.configuration || data.rawStream;
+              if (!configuration || 0 === configuration.length)
+                  return "missing-configuration";
               try {
                   this.decoder = new WebCodecsVideoDecoder({
                       codec: nextCodec,
@@ -79,10 +98,11 @@ function canUseWebCodecs() {
                   return "init-failed";
               }
               this.codec = nextCodec;
+              this.configuration = new Uint8Array(configuration);
               this.writer = this.decoder.writable.getWriter();
               this.enqueueWrite({
                   type: "configuration",
-                  data: data.rawStream,
+                  data: configuration,
               }, "configuration");
 
               // New decoder flow requires configuration and the first keyframe data packet.
@@ -286,7 +306,7 @@ function canUseWebCodecs() {
             , q = c.data.channel;
           if ("canvas" === P && (void 0 === J || null === J))
               break;
-          if ("canvas" !== P && (void 0 === fb || null === fb))
+          if ("canvas" !== P && ((void 0 === fb || null === fb) || null === X))
               break;
           var r = "canvas" === P ? J.timeStamp : fb;
           r = 1e3 * r.timestamp + r.timestamp_usec;
@@ -878,10 +898,20 @@ function canUseWebCodecs() {
       setLiveMode: function(a) {
           const requestedMode = null === a ? "canvas" : a;
           const effectiveMode = "canvas" === requestedMode && !canUseWebCodecs() ? "video" : requestedMode;
+          const previousMode = P;
 
           null !== y && y(effectiveMode),
-          P = effectiveMode,
-          "video" === P ? null !== p && p.renewCanvas() : "canvas" === P && h(!1)
+          P = effectiveMode;
+
+          if (previousMode === P)
+              return;
+
+          if ("video" === P) {
+              null !== p && p.stopRendering();
+              return;
+          }
+
+          "canvas" === P && h(!1)
       },
       setPlayMode: function(a) {
           W = a
@@ -1054,8 +1084,48 @@ function createVideoFrameRenderer(canvas) {
     // }
 
     if (WebGLVideoFrameRenderer.isSupported) {
-      return new WebGLVideoFrameRenderer(canvas);
+            try {
+                    return new WebGLVideoFrameRenderer(canvas);
+            } catch (error) {
+                    console.warn("WebGL renderer init failed, trying fallbacks", error);
+            }
     }
 
-    return new BitmapVideoFrameRenderer(canvas);
+        const bitmapContext = canvas.getContext("bitmaprenderer", {
+            alpha: false,
+        });
+        if (bitmapContext) {
+            try {
+                return new BitmapVideoFrameRenderer(canvas);
+            } catch (error) {
+                console.warn("Bitmap renderer init failed, using 2D fallback", error);
+            }
+        }
+
+        return new Canvas2dVideoFrameRenderer(canvas);
   }
+
+class Canvas2dVideoFrameRenderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.context = canvas.getContext("2d", {
+            alpha: false,
+            desynchronized: true,
+        });
+
+        if (!this.context)
+            throw new Error("2D canvas context is unavailable");
+    }
+
+    setSize(width, height) {
+        if (this.canvas.width !== width)
+            this.canvas.width = width;
+        if (this.canvas.height !== height)
+            this.canvas.height = height;
+    }
+
+    draw(frame) {
+        this.context.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
+        return Promise.resolve();
+    }
+}
