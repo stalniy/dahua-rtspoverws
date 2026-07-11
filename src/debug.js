@@ -1,5 +1,5 @@
 const noop = () => {};
-export const debug = process.env.DEBUG || 1 ? console : {
+export const debug = process.env.DEBUG ? console : {
     log: noop,
     error: noop,
     count: noop,
