@@ -248,6 +248,9 @@ function resolveDecodeModeForTracks(tracks) {
       case "canvasRender":
           k(0, "currentTime"),
           i(c.data, c.option),
+          c.option && c.option.bitmapFrame && null !== videoProcessWorker && videoProcessWorker.postMessage({
+              type: "canvasRenderAck"
+          }),
           vb++;
           break;
       case "initSegment":

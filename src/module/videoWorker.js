@@ -15,7 +15,8 @@ var videoRtpSessionsArray = []
   , mjpegSession = null
   , ivsSession = null
   , channelId = null
-  , dropout = 1;
+  , dropout = 1
+  , canvasFrameInFlight = !1;
 
 debug.log("video worker loaded");
 sendMessage("WorkerReady")
@@ -65,13 +66,22 @@ function receiveMessage(message) {
             });
         }
         break;
+    case "canvasRenderAck":
+        canvasFrameInFlight = !1;
+        break;
     case "terminate":
         videoRtpSessionsArray.forEach(rtpSession => {
             rtpSession.terminate();
         });
         videoRtpSessionsArray = [];
         rtpSession = null;
+        canvasFrameInFlight = !1;
         sendMessage("terminateProcessed")
+    }
+}
+function releaseCanvasFrame(frame) {
+    if ("function" == typeof ImageBitmap && frame instanceof ImageBitmap) {
+        frame.close();
     }
 }
 async function setVideoRtpSession(a) {
@@ -167,10 +177,17 @@ function RtpReturnCallback(a) {
                 frameType: b.frameData.frameType,
                 timeStamp: null
             };
-            null !== b.timeStamp && "undefined" != typeof b.timeStamp && (d.timeStamp = b.timeStamp),
-            sendMessage("videoInfo", d),
-            "undefined" != typeof b.frameData.data && null !== b.frameData.data &&
-            sendMessage("canvasRender", b.frameData.data, b.frameData.option)
+            null !== b.timeStamp && "undefined" != typeof b.timeStamp && (d.timeStamp = b.timeStamp);
+            sendMessage("videoInfo", d);
+            if ("undefined" != typeof b.frameData.data && null !== b.frameData.data) {
+                var e = !!(b.frameData.option && b.frameData.option.bitmapFrame);
+                if (e && canvasFrameInFlight)
+                    releaseCanvasFrame(b.frameData.data);
+                else {
+                    e && (canvasFrameInFlight = !0);
+                    sendMessage("canvasRender", b.frameData.data, b.frameData.option);
+                }
+            }
         } else if (null !== b.frameData && "video" === decodeMode) {
             null !== b.initSegmentData && (sendMessage("codecInfo", b.codecInfo),
             sendMessage("initSegment", b.initSegmentData));
