@@ -201,5 +201,5 @@ function sendMessage(a, b, c) {
         channelId: channelId,
         option: c
     };
-    "canvasRender" === a ? postMessage(d, [b.buffer]) : postMessage(d)
+    "canvasRender" === a ? "function" == typeof ImageBitmap && b instanceof ImageBitmap ? postMessage(d, [b]) : postMessage(d, [b.buffer]) : postMessage(d)
 }

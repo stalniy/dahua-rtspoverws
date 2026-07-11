@@ -14,6 +14,13 @@ function BufferNode(a) {
     this.next = null
 }
 function StreamDrawer(a, b, c, d) {
+    function getPreferredRendererType(a) {
+        return a && a.bitmapFrame ? "Canvas2dImageCanvas" : a && "undefined" != typeof a.ylen ? "PlanarYuvWebGL" : "ImageWebGL"
+    }
+    function isRendererCompatible(a, b) {
+        var c = getPreferredRendererType(b);
+        return "PlanarYuvWebGL" === c ? "PlanarYuvWebGL" === a || "PlanarYuvCanvas2d" === a : a === c
+    }
     function supportsPlanarYuvRenderer(a) {
         return "PlanarYuvWebGL" === a || "PlanarYuvCanvas2d" === a
     }
@@ -145,9 +152,9 @@ function StreamDrawer(a, b, c, d) {
       , R = null
       , S = function(a, b, c) {
         var size = new Size(a,b);
-        aa = c && "undefined" != typeof c.ylen ? "PlanarYuvWebGL" : "ImageWebGL";
+        aa = getPreferredRendererType(c);
         try {
-            p = "PlanarYuvWebGL" === aa ? new PlanarYuvWebGLCanvas(o, size) : new ImageWebGLCanvas(o, size)
+            p = "PlanarYuvWebGL" === aa ? new PlanarYuvWebGLCanvas(o, size) : "Canvas2dImageCanvas" === aa ? new Canvas2dImageCanvas(o, size) : new ImageWebGLCanvas(o, size)
         } catch (d) {
             debug.error("Primary canvas renderer init failed, using 2D fallback", d),
             aa = "PlanarYuvWebGL" === aa ? "PlanarYuvCanvas2d" : "Canvas2dImageCanvas",
@@ -260,9 +267,9 @@ function StreamDrawer(a, b, c, d) {
 
         F = R.dequeue();
         const isVideoFrame = window.VideoFrame && F && F.buffer instanceof VideoFrame;
-        if (null !== F && null !== F.buffer && ("mjpeg" === F.codecType || isVideoFrame || F.buffer.length > 0)) {
-            var shouldUsePlanarYuv = !!(F.option && "undefined" != typeof F.option.ylen)
-              , rendererTypeMismatch = shouldUsePlanarYuv ? !supportsPlanarYuvRenderer(aa) : supportsPlanarYuvRenderer(aa);
+        const isImageBitmap = "function" == typeof ImageBitmap && F && F.buffer instanceof ImageBitmap;
+        if (null !== F && null !== F.buffer && ("mjpeg" === F.codecType || isVideoFrame || isImageBitmap || F.buffer.length > 0)) {
+            var rendererTypeMismatch = !isRendererCompatible(aa, F.option);
             ("undefined" == typeof q || "undefined" == typeof r || q !== F.width || r !== F.height || u !== F.codecType || rendererTypeMismatch) && (
             S(F.width, F.height, F.option),
             s = aa,
@@ -285,6 +292,8 @@ function StreamDrawer(a, b, c, d) {
                 if ("mjpeg" === F.codecType) {
                     E.free(F.buffer);
                 } else if (isVideoFrame) {
+                    F.buffer.close();
+                } else if (isImageBitmap) {
                     F.buffer.close();
                 } else {
                     delete F.buffer;
@@ -338,8 +347,7 @@ function StreamDrawer(a, b, c, d) {
         draw(frameBuffer, width, height, codecType, frameType, timestamp, options) {
             // If not using buffered rendering, draw immediately
             if (m === false) {
-                const shouldUsePlanarYuv = !!(options && "undefined" != typeof options.ylen);
-                const rendererTypeMismatch = shouldUsePlanarYuv ? !supportsPlanarYuvRenderer(aa) : supportsPlanarYuvRenderer(aa);
+                const rendererTypeMismatch = !isRendererCompatible(aa, options);
                 // Check if canvas dimensions or codec type changed, reinitialize if needed
                 if ((typeof q === "undefined" || typeof r === "undefined" ||
                      q !== width || r !== height || u !== codecType || rendererTypeMismatch)) {

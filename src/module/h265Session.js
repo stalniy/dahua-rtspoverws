@@ -295,6 +295,85 @@ function concatNalUnits(units) {
         offset += units[index].length;
     return buffer
 }
+
+function createBitmapFrameConverter() {
+    var canvas = null
+      , context = null
+      , imageData = null
+      , currentWidth = 0
+      , currentHeight = 0;
+
+    function clamp(value) {
+        return value < 0 ? 0 : value > 255 ? 255 : value
+    }
+
+    return {
+        isSupported: function() {
+            return "function" == typeof OffscreenCanvas;
+        },
+        convert: function(frameData) {
+            if (!frameData || !frameData.data || !frameData.option || !this.isSupported())
+                return null;
+
+            var width = frameData.width
+              , height = frameData.height
+              , yPlaneLength = frameData.option.ylen * height
+              , uPlaneLength = (frameData.option.ulen || (frameData.option.ylen >> 1)) * (height >> 1)
+              , vPlaneLength = (frameData.option.vlen || (frameData.option.ylen >> 1)) * (height >> 1)
+              , yPlane = frameData.data.subarray(0, yPlaneLength)
+              , uPlane = frameData.data.subarray(yPlaneLength, yPlaneLength + uPlaneLength)
+              , vPlane = frameData.data.subarray(yPlaneLength + uPlaneLength, yPlaneLength + uPlaneLength + vPlaneLength);
+
+            if (!canvas || currentWidth !== width || currentHeight !== height) {
+                canvas = new OffscreenCanvas(width, height);
+                context = canvas.getContext("2d", {
+                    alpha: !1,
+                    desynchronized: !0,
+                });
+                imageData = null;
+                currentWidth = width;
+                currentHeight = height;
+            }
+
+            if (!context)
+                return null;
+
+            if (!imageData || imageData.width !== width || imageData.height !== height)
+                imageData = context.createImageData(width, height);
+
+            for (var rgba = imageData.data, pixelIndex = 0, row = 0; row < height; row++)
+                for (var chromaRow = row >> 1, column = 0; column < width; column++) {
+                    var ySample = yPlane[pixelIndex]
+                      , chromaIndex = chromaRow * (width >> 1) + (column >> 1)
+                      , uSample = uPlane[chromaIndex]
+                      , vSample = vPlane[chromaIndex]
+                      , red = 1.16438 * ySample + 1.59603 * vSample - 222.92157
+                      , green = 1.16438 * ySample - 0.39176 * uSample - 0.81297 * vSample + 135.57529
+                      , blue = 1.16438 * ySample + 2.01723 * uSample - 276.83585
+                      , rgbaOffset = 4 * pixelIndex;
+                    rgba[rgbaOffset] = clamp(red);
+                    rgba[rgbaOffset + 1] = clamp(green);
+                    rgba[rgbaOffset + 2] = clamp(blue);
+                    rgba[rgbaOffset + 3] = 255;
+                    pixelIndex += 1;
+                }
+
+            context.putImageData(imageData, 0, 0);
+
+            return {
+                data: canvas.transferToImageBitmap(),
+                option: {
+                    bitmapFrame: !0
+                },
+                width: width,
+                height: height,
+                codecType: frameData.codecType,
+                frameType: frameData.frameType
+            };
+        }
+    }
+}
+
 export function H265Session() {
     "use strict";
     function a() {
@@ -311,7 +390,7 @@ export function H265Session() {
     }, l = 0, m = 0, n = null, o = 0, p = 0, q = 0, r = 0, s = {
         width: 0,
         height: 0
-    }, t = 0, u = 8e3, v = 0, w = null, x = "webcodecs", y = null, z = null;
+    }, t = 0, u = 8e3, v = 0, w = null, x = "webcodecs", y = null, z = null, bitmapFrameConverter = createBitmapFrameConverter();
     return a.prototype = {
         setReturnCallback: function(a) {
             this.rtpReturnCallback = a
@@ -472,10 +551,11 @@ export function H265Session() {
                     if (null !== z && h > 0) {
                         z.setOutputSize(h);
                         var P = z.decode(new Uint8Array(b), N);
+                        var Q = bitmapFrameConverter.convert(P);
                         P && (j.frameData = P,
                         j.timeStamp = k,
                         A.decodedData = {
-                            frameData: P,
+                            frameData: Q || P,
                             timeStamp: k
                         })
                     }
