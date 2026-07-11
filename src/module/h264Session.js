@@ -549,7 +549,7 @@ export function H264Session() {
                     o === !0 && (o = !1),
                     "I" === $ && 2 > p && p++,
                     r = null === r.timestamp ? this.getTimeStamp() : r,
-                    x.nalUnits = {
+                    Q.nalUnits = {
                         frameType: $,
                         width: A,
                         height: B,
